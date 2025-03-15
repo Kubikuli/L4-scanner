@@ -10,13 +10,15 @@
 #include <sys/socket.h>
 #include <sys/epoll.h>
 #include <cerrno>
+#include <mutex>
 
 #include <net/if.h>
 #include <sys/ioctl.h> // For ioctl
 
+static std::mutex printMutex;
 
 // UDP port scanning function
-int UDP_scan_v4(int udpPort, const sockaddr_in& destAddr, const std::string& interface) {
+int UDP_scan_v4(int udpPort, const sockaddr_in& destAddr, const std::string& interface, int timeout) {
     // Create local copy and set port
     sockaddr_in tmpAddr = destAddr;
     tmpAddr.sin_port = htons(udpPort);
@@ -57,18 +59,20 @@ int UDP_scan_v4(int udpPort, const sockaddr_in& destAddr, const std::string& int
     epoll_ctl(epfd, EPOLL_CTL_ADD, sock, &ev);
 
     // Wait for an event
-    int nfds = epoll_wait(epfd, events, 1, 2000); // 2s timeout for example
+    int nfds = epoll_wait(epfd, events, 1, timeout); // timeout for example
     if (nfds > 0) {
         if (events[0].events & EPOLLERR) {
             int err = 0; socklen_t len = sizeof(err);
             getsockopt(sock, SOL_SOCKET, SO_ERROR, &err, &len);
             if (err == ECONNREFUSED) {
+                std::lock_guard<std::mutex> lock(printMutex);
                 std::cout << inet_ntoa(tmpAddr.sin_addr) << " " << udpPort << " udp closed" << std::endl;
             }
         }
     }
     // else no response => possibly open or filtered
     else{
+        std::lock_guard<std::mutex> lock(printMutex);
         std::cout << inet_ntoa(tmpAddr.sin_addr) << " " << udpPort << " udp open" << std::endl;
     }
 
@@ -77,7 +81,7 @@ int UDP_scan_v4(int udpPort, const sockaddr_in& destAddr, const std::string& int
     return 0;
 }
 
-int UDP_scan_v6(int udpPort, const sockaddr_in6& destAddr6, const std::string& interface) {
+int UDP_scan_v6(int udpPort, const sockaddr_in6& destAddr6, const std::string& interface, int timeout) {
     sockaddr_in6 tmpAddr6 = destAddr6;
     tmpAddr6.sin6_port = htons(udpPort);
 
@@ -118,7 +122,7 @@ int UDP_scan_v6(int udpPort, const sockaddr_in6& destAddr6, const std::string& i
     epoll_ctl(epfd, EPOLL_CTL_ADD, sock, &ev);
 
     // Wait for an event
-    int nfds = epoll_wait(epfd, events, 1, 2000); // 2s timeout
+    int nfds = epoll_wait(epfd, events, 1, timeout); // timeout
     char ipStr[INET6_ADDRSTRLEN];
     inet_ntop(AF_INET6, &tmpAddr6.sin6_addr, ipStr, INET6_ADDRSTRLEN);
 
@@ -127,10 +131,12 @@ int UDP_scan_v6(int udpPort, const sockaddr_in6& destAddr6, const std::string& i
             int err = 0; socklen_t len = sizeof(err);
             getsockopt(sock, SOL_SOCKET, SO_ERROR, &err, &len);
             if (err == ECONNREFUSED) {
+                std::lock_guard<std::mutex> lock(printMutex);
                 std::cout << ipStr << " " << udpPort << " udp closed" << std::endl;
             }
         }
     } else {
+        std::lock_guard<std::mutex> lock(printMutex);
         std::cout << ipStr << " " << udpPort << " udp open" << std::endl;
     }
 

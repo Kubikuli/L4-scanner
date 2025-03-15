@@ -2,19 +2,17 @@
 #include <vector>
 #include <string>
 #include <thread>
-
-#include <cstring>
-// #include <cstdlib>
+// #include <cstring>
 #include <unistd.h>     //close
 #include <arpa/inet.h>
-#include <netinet/ip.h>
-#include <netinet/tcp.h>
-#include <sys/socket.h>
-#include <pcap.h>
+// #include <netinet/ip.h>
+// #include <netinet/tcp.h>
+// #include <sys/socket.h>
+// #include <pcap.h>
 #include <netinet/in.h>
-#include <sys/select.h>
+// #include <sys/select.h>
 
-#include <ifaddrs.h>
+// #include <ifaddrs.h>
 #include <netinet/in.h>
 #include <netinet/ip6.h>  // for struct ip6_hdr
 
@@ -23,20 +21,24 @@
 #include "udp_scanner.h"
 #include "utils.h"
 
+/*
+    Parses command line arguments, sets values approriatelly,
+    scans selected ports using selected TCP or UDP scan
+*/
 int main(int argc, char *argv[]) {
     std::string interface, target;
     std::vector<int> tcpPorts, udpPorts;
     int timeout;
 
     try {
-        // Parse command line arguments
+        // Parse command line arguments and save values to variables given as parameters
         auto retCode = parseArguments(argc, argv, interface, target, tcpPorts, udpPorts, timeout);
         if (retCode == 1) {
             return 0;
         }
     }
     catch (const std::runtime_error& err) {
-        std::cerr << err.what() << "\n";
+        std::cerr << "Error: missing hostname. Try './ipk-l4-scan --help' for help\n";
         return 1;
     }
 
@@ -48,14 +50,11 @@ int main(int argc, char *argv[]) {
     int ret;
 
     // Select IPv4 or IPv6 based on the resolved address
-    // and scan all the selected ports with UDP and TCP
+    // and scan all the selected ports with UDP and/or TCP
     if (isIPv6) {
-        // IPv6
-        std::cerr << "Target is IPv6: " << target << "\n";
-
-        // ports for TCP
+        // Ports for TCP
         for (auto port : tcpPorts){
-            // while loop tolikrat kolik je prvku v tom vektoru a pro kazdy fork 
+            std::cerr << "TCP IPv6\n";
             ret = TCP_scan_v6(port, destAddr6, interface);
             if (ret != 0){
                 return ret;
@@ -63,38 +62,36 @@ int main(int argc, char *argv[]) {
         }
 
         // Ports for UDP
-        for (auto port : udpPorts){
-            // Those two lines are temporary TODO
-            std::cerr << "UDP scan for IPv6\n";
-            ret = UDP_scan_v6(port, destAddr6, interface);
-            if (ret != 0){
-                return ret;
-            }
+        std::vector<std::thread> udpThreadsV6;
+        for (auto port : udpPorts) {
+            udpThreadsV6.emplace_back(UDP_scan_v6, port, destAddr6, interface, timeout);
+        }
+        // Wait for all the threads to finish
+        for (auto &t : udpThreadsV6) {
+            t.join();
         }
     }
 
     // IPv4
     else {
-        std::cerr << "Target is IPv4: " << target << "\n";
-
         // Ports for TCP
-        // std::cerr << "TCP scanning in parallel threads\n";
-        std::vector<std::thread> tcpThreads;
+        std::vector<std::thread> tcpThreadsV4;
         for (auto port : tcpPorts) {
-            tcpThreads.emplace_back(TCP_scan_v4, port, destAddr4, interface, timeout);
+            tcpThreadsV4.emplace_back(TCP_scan_v4, port, destAddr4, interface, timeout);
         }
         // Wait for all the TCP threads to finish
-        for (auto &t : tcpThreads) {
+        for (auto &t : tcpThreadsV4) {
             t.join();
         }
 
         // Ports for UDP
-        std::cerr << "UDP scanning for IPv4\n";
-        for (auto port : udpPorts){
-            ret = UDP_scan_v4(port, destAddr4, interface);
-            if (ret != 0){
-                return ret;
-            }
+        std::vector<std::thread> udpThreadsV4;
+        for (auto port : udpPorts) {
+            udpThreadsV4.emplace_back(UDP_scan_v4, port, destAddr4, interface, timeout);
+        }
+        // Wait for all the threads to finish
+        for (auto &t : udpThreadsV4) {
+            t.join();
         }
     }
 

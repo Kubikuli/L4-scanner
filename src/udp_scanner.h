@@ -5,7 +5,7 @@
 #include <netinet/ip.h>
 #include <string>
 
-int UDP_scan_v4(int udpPort, const sockaddr_in& destAddr, const std::string& interface);
-int UDP_scan_v6(int udpPort, const sockaddr_in6& destAddr6, const std::string& interface);
+int UDP_scan_v4(int udpPort, const sockaddr_in& destAddr, const std::string& interface, int timeout);
+int UDP_scan_v6(int udpPort, const sockaddr_in6& destAddr6, const std::string& interface, int timeout);
 
 #endif // UDP_SCANNER_H
