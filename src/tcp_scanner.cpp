@@ -191,10 +191,22 @@ int TCP_recieve_packet_v6(const std::string& interface, const sockaddr_in6& dest
 
 /****************************************************************************** */
 int TCP_scan_v6(const int &tcpPort, const sockaddr_in6& destAddr6, const std::string& interface, int timeout) {
+    // Create a shared variable to store the capture result
+    std::atomic<int> captureResult(0);
+
+    // Start packet capture in a background thread
+    std::thread captureThread([&]() {
+        captureResult.store(TCP_recieve_packet_v6(interface, destAddr6, tcpPort, timeout));
+    });
+
+    // Wait briefly to ensure pcap_loop is ready
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
     // Create raw socket for TCP over IPv6
     int sock = socket(AF_INET6, SOCK_RAW, IPPROTO_TCP);
     if (sock < 0) {
         perror("Socket creation failed (IPv6)");
+        captureThread.join();
         return 1;
     }
 
@@ -203,6 +215,7 @@ int TCP_scan_v6(const int &tcpPort, const sockaddr_in6& destAddr6, const std::st
     if (localIP.empty()) {
         std::cerr << "Failed to get local IPv6 address for interface " << interface << std::endl;
         close(sock);
+        captureThread.join();
         return 1;
     }
 
@@ -265,13 +278,15 @@ int TCP_scan_v6(const int &tcpPort, const sockaddr_in6& destAddr6, const std::st
         perror("Send failed (IPv6)");
         std::cerr << "errno: " << errno << std::endl;
         close(sock);
+        captureThread.join();
         return 1;
     }
 
     close(sock);
 
-    // Capture response with pcap
-    return TCP_recieve_packet_v6(interface, destAddr6, tcpPort, timeout);
+    // Wait for the capture thread to finish
+    captureThread.join();
+    return captureResult.load();
 }
 
 
