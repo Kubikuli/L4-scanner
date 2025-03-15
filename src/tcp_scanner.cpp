@@ -32,13 +32,7 @@ struct PseudoHeader {
     uint16_t tcp_length;
 };
 
-struct PseudoHeaderV6 {
-    struct in6_addr src;
-    struct in6_addr dest;
-    uint32_t length;
-    uint8_t zero[3];
-    uint8_t nextHeader;
-};
+static std::mutex printMutex;
 
 // Function to calculate checksum
 uint16_t checksum(void *buffer, int length) {
@@ -62,25 +56,24 @@ uint16_t checksum(void *buffer, int length) {
 
 // Function to compute the checksum
 uint16_t calculate_tcp_checksum_v6(struct in6_addr src, struct in6_addr dest, struct tcphdr *tcp, int tcp_length) {
-    struct PseudoHeaderV6 pseudo_hdr;
+    struct PseudoHeaderV6 {
+        struct in6_addr src;
+        struct in6_addr dest;
+        uint32_t length;
+        uint8_t zero[3];
+        uint8_t nextHeader;
+    } pseudo_hdr;
+    
     memset(&pseudo_hdr, 0, sizeof(pseudo_hdr));
-
     pseudo_hdr.src = src;
     pseudo_hdr.dest = dest;
     pseudo_hdr.length = htonl(tcp_length);
     pseudo_hdr.nextHeader = IPPROTO_TCP;
-
+    
     char buffer[sizeof(pseudo_hdr) + tcp_length];
     memcpy(buffer, &pseudo_hdr, sizeof(pseudo_hdr));
     memcpy(buffer + sizeof(pseudo_hdr), tcp, tcp_length);
-
-    return checksum(buffer, sizeof(buffer));
-}
-
-uint16_t calculate_tcp_checksum(void *tcp_header, int tcp_length, void *pseudo_header, int pseudo_length) {
-    char buffer[pseudo_length + tcp_length];
-    memcpy(buffer, pseudo_header, pseudo_length);
-    memcpy(buffer + pseudo_length, tcp_header, tcp_length);
+    
     return checksum(buffer, sizeof(buffer));
 }
 
@@ -117,8 +110,6 @@ struct PacketHandlerData {
     std::atomic<bool> packetArrived;
 };
 
-static std::mutex printMutex;
-
 
 
 // This function is called every time an IPv6 packet is captured
@@ -135,7 +126,7 @@ void packet_handler_v6(u_char *user, const struct pcap_pkthdr *hdr, const u_char
     inet_ntop(AF_INET6, &ip6h->ip6_src, srcStr, sizeof(srcStr));
     inet_ntop(AF_INET6, &ip6h->ip6_dst, dstStr, sizeof(dstStr));
 
-    // std::cerr << "Received IPv6 packet from " << srcStr << " -> " << dstStr << std::endl;
+    std::cerr << "Received IPv6 packet from " << srcStr << " -> " << dstStr << std::endl;
 
     // The base IPv6 header is 40 bytes, parse TCP header afterward
     struct tcphdr *tcph = (struct tcphdr *)(packet + 14 + 40);
@@ -157,7 +148,7 @@ void packet_handler_v6(u_char *user, const struct pcap_pkthdr *hdr, const u_char
 
 
 /*********************************************************************************** */
-int TCP_recieve_packet_v6(const std::string& interface, const sockaddr_in6& destAddr6, int scannedPort) {
+int TCP_recieve_packet_v6(const std::string& interface, const sockaddr_in6& destAddr6, int scannedPort, int timeout) {
     char errbuf[PCAP_ERRBUF_SIZE];
     pcap_t *handle = pcap_open_live(interface.c_str(), BUFSIZ, 1, 1000, errbuf);
     if (!handle) {
@@ -184,9 +175,8 @@ int TCP_recieve_packet_v6(const std::string& interface, const sockaddr_in6& dest
 
     PacketHandlerData data{handle, false};
 
-    const int timeoutMs = 5000;
-    std::thread timerThread([&data, timeoutMs, &ipStr, scannedPort]() {
-        auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
+    std::thread timerThread([&data, timeout, &ipStr, scannedPort]() {
+        auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout);
         while (!data.packetArrived.load()) {
             if (std::chrono::steady_clock::now() >= deadline) {
                 pcap_breakloop(data.handle);
@@ -206,7 +196,7 @@ int TCP_recieve_packet_v6(const std::string& interface, const sockaddr_in6& dest
 }
 
 /****************************************************************************** */
-int TCP_scan_v6(const int &tcpPort, const sockaddr_in6& destAddr6, const std::string& interface) {
+int TCP_scan_v6(const int &tcpPort, const sockaddr_in6& destAddr6, const std::string& interface, int timeout) {
     // Create raw socket for TCP over IPv6
     int sock = socket(AF_INET6, SOCK_RAW, IPPROTO_TCP);
     if (sock < 0) {
@@ -249,30 +239,26 @@ int TCP_scan_v6(const int &tcpPort, const sockaddr_in6& destAddr6, const std::st
     struct sockaddr_in6 dest;
     memset(&dest, 0, sizeof(dest));
     dest.sin6_family = AF_INET6;
-    dest.sin6_port = htons(tcpPort);  // Set the correct port
+    dest.sin6_port = 0;
     memcpy(&dest.sin6_addr, &destAddr6.sin6_addr, sizeof(struct in6_addr));
-    dest.sin6_scope_id = if_nametoindex(interface.c_str());
+    
+    if (IN6_IS_ADDR_LINKLOCAL(&dest.sin6_addr)) {
+        dest.sin6_scope_id = if_nametoindex(interface.c_str());
+    } else {
+        dest.sin6_scope_id = 0;  // Ensure it's zero for global addresses
+    }
+    
     dest.sin6_flowinfo = 0;
 
     std::cout << "Sending SYN packet to " << localIP << " -> " << inet_ntop(AF_INET6, &destAddr6.sin6_addr, new char[INET6_ADDRSTRLEN], INET6_ADDRSTRLEN) << "\n";
-
-    struct ip6_hdr ip6h;
-    memset(&ip6h, 0, sizeof(ip6h));
     
-    ip6h.ip6_vfc = 6 << 4;  // IPv6 version
-    ip6h.ip6_plen = htons(sizeof(tcph));
-    ip6h.ip6_nxt = IPPROTO_TCP;
-    ip6h.ip6_hlim = 64; // Hop limit
-    ip6h.ip6_src = srcAddr6.sin6_addr;
-    ip6h.ip6_dst = destAddr6.sin6_addr;
-    
-    char packet[sizeof(ip6h) + sizeof(tcph)];
-    memcpy(packet, &ip6h, sizeof(ip6h));
-    memcpy(packet + sizeof(ip6h), &tcph, sizeof(tcph));
+    char packet[sizeof(tcph)];
+    memcpy(packet, &tcph, sizeof(tcph));
 
     // Send TCP packet
     if (sendto(sock, packet, sizeof(packet), 0, (struct sockaddr *)&dest, sizeof(dest)) < 0) {
         perror("Send failed (IPv6)");
+        std::cerr << "errno: " << errno << std::endl;
         close(sock);
         return 1;
     }
@@ -280,9 +266,11 @@ int TCP_scan_v6(const int &tcpPort, const sockaddr_in6& destAddr6, const std::st
     close(sock);
 
     // Capture response with pcap
-    return TCP_recieve_packet_v6(interface, destAddr6, tcpPort);
+    return TCP_recieve_packet_v6(interface, destAddr6, tcpPort, timeout);
 }
 
+
+/******************************************************************************************** */
 // Gets current user's IP address
 std::string getLocalIPv4(const std::string& interface) {
     struct ifaddrs *ifaddr, *ifa;
@@ -314,9 +302,6 @@ void packet_handler_v4(u_char *user, const struct pcap_pkthdr *hdr, const u_char
 
     struct tcphdr *tcph = (struct tcphdr *)(packet + 14 + (iph->ihl * 4));  // TCP header
 
-    // std::cerr << "Received packet from " << inet_ntoa(*(in_addr *)&iph->saddr) << " -> "
-    //           << inet_ntoa(*(in_addr *)&iph->daddr) << std::endl;
-
     uint16_t srcPort = ntohs(tcph->source);
 
     // Determines if socket is closed or open based on the received packet
@@ -345,6 +330,7 @@ int TCP_recieve_packet_v4(const std::string& interface, const sockaddr_in& destA
 
     std::string ipStr = inet_ntoa(destAddr4.sin_addr);
     std::string filterExp = "tcp and src " + ipStr + " and src port " + std::to_string(scannedPort);
+
     struct bpf_program filter;
     if (pcap_compile(handle, &filter, filterExp.c_str(), 0, PCAP_NETMASK_UNKNOWN) == -1 ||
         pcap_setfilter(handle, &filter) == -1) {
@@ -352,8 +338,6 @@ int TCP_recieve_packet_v4(const std::string& interface, const sockaddr_in& destA
         pcap_close(handle);
         return 1;
     }
-
-    // std::cerr << "Listening for TCP responses from " << ipStr << "..." << std::endl;
 
     PacketHandlerData data{handle, false};
 
@@ -465,10 +449,5 @@ int TCP_scan_v4(const int &tcpPort, const sockaddr_in& destAddr4, const std::str
     // std::cerr << "SYN packet sent to " << inet_ntoa(dest.sin_addr) << std::endl;
     close(sock);
 
-    int ret = TCP_recieve_packet_v4(interface, destAddr4, timeout, tcpPort);
-    if (ret != 0) {
-        return ret;
-    }
-
-    return 0;
+    return TCP_recieve_packet_v4(interface, destAddr4, timeout, tcpPort);
 }

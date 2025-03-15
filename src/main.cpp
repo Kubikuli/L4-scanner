@@ -2,19 +2,19 @@
 #include <vector>
 #include <string>
 #include <thread>
+#include <netinet/in.h>
+
 // #include <cstring>
-#include <unistd.h>     //close
-#include <arpa/inet.h>
+// #include <unistd.h>     //close
+// #include <arpa/inet.h>
 // #include <netinet/ip.h>
 // #include <netinet/tcp.h>
 // #include <sys/socket.h>
 // #include <pcap.h>
-#include <netinet/in.h>
 // #include <sys/select.h>
-
 // #include <ifaddrs.h>
-#include <netinet/in.h>
-#include <netinet/ip6.h>  // for struct ip6_hdr
+// #include <netinet/in.h>
+// #include <netinet/ip6.h>  // for struct ip6_hdr
 
 #include "scanner.h"
 #include "tcp_scanner.h"
@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
         // Ports for TCP
         for (auto port : tcpPorts){
             std::cerr << "TCP IPv6\n";
-            ret = TCP_scan_v6(port, destAddr6, interface);
+            ret = TCP_scan_v6(port, destAddr6, interface, timeout);
             if (ret != 0){
                 return ret;
             }
