@@ -54,28 +54,22 @@ uint16_t checksum(void *buffer, int length) {
     return static_cast<uint16_t>(~sum);
 }
 
-// Function to compute the checksum
-uint16_t calculate_tcp_checksum_v6(struct in6_addr src, struct in6_addr dest, struct tcphdr *tcp, int tcp_length) {
-    struct PseudoHeaderV6 {
-        struct in6_addr src;
-        struct in6_addr dest;
-        uint32_t length;
-        uint8_t zero[3];
-        uint8_t nextHeader;
-    } pseudo_hdr;
-    
-    memset(&pseudo_hdr, 0, sizeof(pseudo_hdr));
-    pseudo_hdr.src = src;
-    pseudo_hdr.dest = dest;
-    pseudo_hdr.length = htonl(tcp_length);
-    pseudo_hdr.nextHeader = IPPROTO_TCP;
-    
-    char buffer[sizeof(pseudo_hdr) + tcp_length];
-    memcpy(buffer, &pseudo_hdr, sizeof(pseudo_hdr));
-    memcpy(buffer + sizeof(pseudo_hdr), tcp, tcp_length);
-    
+// Define a single pseudo-header-based checksum function
+uint16_t calculate_tcp_checksum(void *tcp_header, int tcp_length, void *pseudo_header, int pseudo_length) {
+    char buffer[pseudo_length + tcp_length];
+    memcpy(buffer, pseudo_header, pseudo_length);
+    memcpy(buffer + pseudo_length, tcp_header, tcp_length);
     return checksum(buffer, sizeof(buffer));
 }
+
+// Create a pseudo-header struct for IPv6
+struct PseudoHeaderV6 {
+    struct in6_addr src;
+    struct in6_addr dest;
+    uint32_t length;
+    uint8_t zero[3];
+    uint8_t nextHeader;
+} __attribute__((packed));
 
 std::string getLocalIPv6(const std::string& interface) {
     struct ifaddrs *ifaddr, *ifa;
@@ -158,7 +152,7 @@ int TCP_recieve_packet_v6(const std::string& interface, const sockaddr_in6& dest
 
     char ipStr[INET6_ADDRSTRLEN];
     inet_ntop(AF_INET6, &destAddr6.sin6_addr, ipStr, sizeof(ipStr));
-    std::string filterExp = "tcp and ip6 src " + std::string(ipStr) + " and port " + std::to_string(scannedPort);
+    std::string filterExp = "ip6 and tcp and src host " + std::string(ipStr) + " and src port " + std::to_string(scannedPort);
 
     struct bpf_program filter;
     if (pcap_compile(handle, &filter, filterExp.c_str(), 0, PCAP_NETMASK_UNKNOWN) == -1) {
@@ -232,15 +226,26 @@ int TCP_scan_v6(const int &tcpPort, const sockaddr_in6& destAddr6, const std::st
     tcph.window = htons(65535);
     tcph.check = 0;
 
-    // Compute TCP checksum with IPv6 pseudo-header
-    tcph.check = calculate_tcp_checksum_v6(srcAddr6.sin6_addr, destAddr6.sin6_addr, &tcph, sizeof(tcph));
-
     // Destination structure for sendto
     struct sockaddr_in6 dest;
     memset(&dest, 0, sizeof(dest));
     dest.sin6_family = AF_INET6;
     dest.sin6_port = 0;
     memcpy(&dest.sin6_addr, &destAddr6.sin6_addr, sizeof(struct in6_addr));
+
+    // Build IPv6 pseudo-header
+    PseudoHeaderV6 psh6;
+    memset(&psh6, 0, sizeof(psh6));
+    psh6.src = srcAddr6.sin6_addr;
+    psh6.dest = dest.sin6_addr;
+    psh6.length = htonl(sizeof(tcph));
+    psh6.nextHeader = IPPROTO_TCP;
+
+    // Calculate checksum using the unified function
+    tcph.check = calculate_tcp_checksum(
+        &tcph, sizeof(tcph),
+        &psh6, sizeof(psh6)
+    );
     
     if (IN6_IS_ADDR_LINKLOCAL(&dest.sin6_addr)) {
         dest.sin6_scope_id = if_nametoindex(interface.c_str());
@@ -255,7 +260,7 @@ int TCP_scan_v6(const int &tcpPort, const sockaddr_in6& destAddr6, const std::st
     char packet[sizeof(tcph)];
     memcpy(packet, &tcph, sizeof(tcph));
 
-    // Send TCP packet
+    // Send the TCP segment (without IPv6 header)
     if (sendto(sock, packet, sizeof(packet), 0, (struct sockaddr *)&dest, sizeof(dest)) < 0) {
         perror("Send failed (IPv6)");
         std::cerr << "errno: " << errno << std::endl;
