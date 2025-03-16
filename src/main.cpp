@@ -21,7 +21,7 @@
 #include "udp_scanner.h"
 #include "utils.h"
 
-/*
+/**
     Parses command line arguments, sets values approriatelly,
     scans selected ports using selected TCP or UDP scan
 */
@@ -53,12 +53,13 @@ int main(int argc, char *argv[]) {
     // and scan all the selected ports with UDP and/or TCP
     if (isIPv6) {
         // Ports for TCP
-        for (auto port : tcpPorts){
-            std::cerr << "TCP IPv6\n";
-            ret = TCP_scan_v6(port, destAddr6, interface, timeout);
-            if (ret != 0){
-                return ret;
-            }
+        std::vector<std::thread> tcpThreadsV6;
+        for (auto port : tcpPorts) {
+            tcpThreadsV6.emplace_back(TCP_scan_v6, port, destAddr6, interface, timeout);
+        }
+        // Wait for all the threads to finish
+        for (auto &t : tcpThreadsV6) {
+            t.join();
         }
 
         // Ports for UDP
