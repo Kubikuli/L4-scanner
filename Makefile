@@ -1,5 +1,5 @@
 CXX = g++
-CXXFLAGS = -Wall -Wextra -std=c++20 -I external/argparse/include
+CXXFLAGS = -Wextra -std=c++20 -I external/argparse/include
 TARGET = ipk-l4-scan
 
 SRC = $(wildcard src/*.cpp)

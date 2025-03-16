@@ -1,7 +1,16 @@
+/*
+    VUT FIT IPK
+    1. Project - L4 Scanner
+    Author: Jakub Lůčný (xlucnyj00)
+    Date: 2025-03-16
+*/
+
 #include <cstring>  // memcpy
 #include <cstdint>
 
-// Function to calculate checksum
+/*
+    Function to calculate checksum for packets
+*/
 uint16_t checksum(void *buffer, int length) {
     uint32_t sum = 0;
     uint16_t *ptr = static_cast<uint16_t *>(buffer);
@@ -21,7 +30,9 @@ uint16_t checksum(void *buffer, int length) {
     return static_cast<uint16_t>(~sum);
 }
 
-// Define a single pseudo-header-based checksum function
+/*
+    Helper function to calculate checksum for packets using IPv6
+*/
 uint16_t calculate_tcp_checksum(void *tcp_header, int tcp_length, void *pseudo_header, int pseudo_length) {
     char buffer[pseudo_length + tcp_length];
     memcpy(buffer, pseudo_header, pseudo_length);

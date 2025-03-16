@@ -1,3 +1,10 @@
+/*
+    VUT FIT IPK
+    1. Project - L4 Scanner
+    Author: Jakub Lůčný (xlucnyj00)
+    Date: 2025-03-16
+*/
+
 #include <iostream>
 #include <vector>
 #include <string>
@@ -24,6 +31,7 @@ int main(int argc, char *argv[]) {
             return 0;
         }
     }
+    // Catch exception caused by missing hostname
     catch (const std::runtime_error& err) {
         std::cerr << "Error: missing hostname. Try './ipk-l4-scan --help' for help\n";
         return 1;
@@ -34,13 +42,12 @@ int main(int argc, char *argv[]) {
     struct sockaddr_in6 destAddr6;
     bool isIPv6 = resolveTarget(target, destAddr4, destAddr6);
 
-    int ret;
-
-    // Select IPv4 or IPv6 based on the resolved address
+    // Select IPv4 or IPv6 based on the resolved/provided address
     // and scan all the selected ports with UDP and/or TCP
     if (isIPv6) {
         // Ports for TCP
         TCPScanner tcpScanner(interface, timeout);
+        // Parallel scan of all the selected TCP ports
         std::vector<std::thread> tcpThreadsV6;
         for (auto port : tcpPorts) {
             tcpThreadsV6.emplace_back([&tcpScanner, port, &destAddr6]() {
@@ -54,6 +61,7 @@ int main(int argc, char *argv[]) {
 
         // Ports for UDP
         UDPScanner udpScanner(interface, timeout);
+        // Parallel scan of all the selected UDP ports
         std::vector<std::thread> udpThreadsV6;
         for (auto port : udpPorts) {
             udpThreadsV6.emplace_back([&udpScanner, port, &destAddr6]() {
@@ -69,6 +77,7 @@ int main(int argc, char *argv[]) {
     // IPv4
     else {
         TCPScanner tcpScanner(interface, timeout);
+        // Parallel scan of all the selected TCP ports
         std::vector<std::thread> tcpThreadsV4;
         for (auto port : tcpPorts) {
             tcpThreadsV4.emplace_back([&tcpScanner, port, &destAddr4]() {
@@ -81,6 +90,7 @@ int main(int argc, char *argv[]) {
         }
 
         UDPScanner udpScanner(interface, timeout);
+        // Parallel scan of all the selected UDP ports
         std::vector<std::thread> udpThreadsV4;
         for (auto port : udpPorts) {
             udpThreadsV4.emplace_back([&udpScanner, port, &destAddr4]() {
