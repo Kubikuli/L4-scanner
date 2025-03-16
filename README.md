@@ -52,13 +52,13 @@ Pro správné fungování musí být program spuštěn s právy správce (s př�
 kde:
 **--help** zobrazí nápovědu a informací o použití
 
-**--interface** specifikuje, které rozhraní chceme použít jako výchozí při skenování \\
+**--interface** specifikuje, které rozhraní chceme použít jako výchozí při skenování  
 Pokud není specifikované konkrétní rozhraní nebo není vůbec specifikovaný tento parametr, tak vypíše list dostupných rozhraní.
 
 **--pu** specifikuje, které porty chceme skenovat pomocí UDP
 
-**--pt** specifikuje, které porty chceme skenovat pomocí TPC \\
-Umožnuje specifikování --pt i --pu zároveň i jen jednoho z nich \\
+**--pt** specifikuje, které porty chceme skenovat pomocí TPC  
+Umožnuje specifikování --pt i --pu zároveň i jen jednoho z nich  
 Umožňuje zvolit jakékoliv platné porty v rozsahu 0-65535
 
 **--wait** čas v milisekundách, specifikuje, jak maximálně dlouho se má čekat na odpověď skenování jednoho portu
@@ -74,13 +74,13 @@ Umožňuje zvolit jakékoliv platné porty v rozsahu 0-65535
 Základní struktura se skládá ze 3 částí: zpracování argumentů příkazové řádky, skenování zvolených TCP portů a skenování zvolených UDP portů.
 Skládá se ze dvou hlavních tříd, představujích konkrétní TCP a UDP skenery, jejich metod a pár pomocných funkcí.
 
-1. Zpracování argumentů příkazové řádky \\
+1. Zpracování argumentů příkazové řádky  
 Pro zpracování argumentů je využita knihovna 'argparser', pomocí které se zpracují argumenty a získají potřebné hodnoty.
 
-2. TCP skenování \\
+2. TCP skenování  
 Provádí se paralelně pomocí vláken a to zavoláním metody 'scanV4' nebo 'scanV6' (podle typu adresy cíle) pro vytvořený objekt ze třídy TCPScanner, pro každé vlákno s jiným přidělených číslem paketu. Ten vytvoří 'raw' soket pro odeslání ručně vytvořeného paketu. Poté proběhne nastavení soketu, vytvoření IP hlavičky a TCP hlavičky paketu. Poté se vytvoří pseudo-hlavička, která se využije k vypočítání kontrolního součtu a paket se odešle na zvolenou cílovou adresu a port. Odpovědi se zachytávají pomocí funkcí s knihovny 'libpcap'. Kdy se otevře kanál pro zachytávání komunikace pomocí 'pcap_open_live()', nastaví se filtr na zachytávané pakety a podle výsledku se vypíše na standardní výstup stav portu.
 
-3. UDP skenování \\
+3. UDP skenování  
 Podobně jako u TCP skenování se UDP skenování provádí paralelně pomocí vláken a to zavoláním metody 'scanV4' nebo 'scanV6' pro vytvořený objekt ze třídy UDPScanner, pro každé vlákno s jiným přidělených číslem paketu. Každé vlákno poté vytvoří soket, z kterého odešle paket na cílovou adresu a zvolený port. Poté pomocí funkce 'epoll' zachytává odpověď a podle výsledku vytiskne stav portu.
 
 
