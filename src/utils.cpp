@@ -4,10 +4,10 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <cstring> //memcpy
+#include <ifaddrs.h>
 
 #include <argparse/argparse.hpp>
 
-#include "scanner.h"
 #include "utils.h"
 
 /*
@@ -44,7 +44,7 @@ int parseArguments(int argc, char* argv[], std::string& interface, std::string& 
     // If it's empty, means option was not used or value was not provided
     interface = program.get<std::string>("--interface");
     if (interface.empty()) {
-        Scanner::listInterfaces();
+        listInterfaces();
         return 1;
     }
 
@@ -68,6 +68,36 @@ int parseArguments(int argc, char* argv[], std::string& interface, std::string& 
     timeout = program.get<int>("--wait");
 
     return 0;
+}
+
+/*
+    Prints out a list of available network interfaces
+*/
+void listInterfaces() {
+    struct ifaddrs* ifaddr;
+    
+    if (getifaddrs(&ifaddr) == -1) {
+        perror("getifaddrs");
+        return;
+    }
+
+    std::cout << "Available Network Interfaces:\n";
+    for (struct ifaddrs* iface = ifaddr; iface != nullptr; iface = iface->ifa_next) {
+        if (iface->ifa_addr == nullptr) continue;  // Skip interfaces with no address
+
+        auto family = iface->ifa_addr->sa_family;
+
+        auto family_name = "AF_INET";
+        if (family == AF_INET6){
+            family_name = "AF_INET6";
+        }
+        else if (family == AF_PACKET){
+            family_name = "AF_PACKET";
+        }
+
+        std::cout << " - " << std::left << std::setw(16) << iface->ifa_name << " " << family_name << "\n";    }
+
+    freeifaddrs(ifaddr);
 }
 
 /*

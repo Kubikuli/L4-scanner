@@ -4,19 +4,6 @@
 #include <thread>
 #include <netinet/in.h>
 
-// #include <cstring>
-// #include <unistd.h>     //close
-// #include <arpa/inet.h>
-// #include <netinet/ip.h>
-// #include <netinet/tcp.h>
-// #include <sys/socket.h>
-// #include <pcap.h>
-// #include <sys/select.h>
-// #include <ifaddrs.h>
-// #include <netinet/in.h>
-// #include <netinet/ip6.h>  // for struct ip6_hdr
-
-#include "scanner.h"
 #include "tcp_scanner.h"
 #include "udp_scanner.h"
 #include "utils.h"
@@ -53,9 +40,12 @@ int main(int argc, char *argv[]) {
     // and scan all the selected ports with UDP and/or TCP
     if (isIPv6) {
         // Ports for TCP
+        TCPScanner tcpScanner(interface, timeout);
         std::vector<std::thread> tcpThreadsV6;
         for (auto port : tcpPorts) {
-            tcpThreadsV6.emplace_back(TCP_scan_v6, port, destAddr6, interface, timeout);
+            tcpThreadsV6.emplace_back([&tcpScanner, port, &destAddr6]() {
+                tcpScanner.scanV6(port, destAddr6);
+            });
         }
         // Wait for all the threads to finish
         for (auto &t : tcpThreadsV6) {
@@ -63,9 +53,12 @@ int main(int argc, char *argv[]) {
         }
 
         // Ports for UDP
+        UDPScanner udpScanner(interface, timeout);
         std::vector<std::thread> udpThreadsV6;
         for (auto port : udpPorts) {
-            udpThreadsV6.emplace_back(UDP_scan_v6, port, destAddr6, interface, timeout);
+            udpThreadsV6.emplace_back([&udpScanner, port, &destAddr6]() {
+                udpScanner.scanV6(port, destAddr6);
+            });
         }
         // Wait for all the threads to finish
         for (auto &t : udpThreadsV6) {
@@ -75,20 +68,24 @@ int main(int argc, char *argv[]) {
 
     // IPv4
     else {
-        // Ports for TCP
+        TCPScanner tcpScanner(interface, timeout);
         std::vector<std::thread> tcpThreadsV4;
         for (auto port : tcpPorts) {
-            tcpThreadsV4.emplace_back(TCP_scan_v4, port, destAddr4, interface, timeout);
+            tcpThreadsV4.emplace_back([&tcpScanner, port, &destAddr4]() {
+                tcpScanner.scanV4(port, destAddr4);
+            });
         }
         // Wait for all the TCP threads to finish
         for (auto &t : tcpThreadsV4) {
             t.join();
         }
 
-        // Ports for UDP
+        UDPScanner udpScanner(interface, timeout);
         std::vector<std::thread> udpThreadsV4;
         for (auto port : udpPorts) {
-            udpThreadsV4.emplace_back(UDP_scan_v4, port, destAddr4, interface, timeout);
+            udpThreadsV4.emplace_back([&udpScanner, port, &destAddr4]() {
+                udpScanner.scanV4(port, destAddr4);
+            });
         }
         // Wait for all the threads to finish
         for (auto &t : udpThreadsV4) {

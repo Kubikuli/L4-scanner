@@ -15,13 +15,14 @@
 #include <net/if.h>
 #include <sys/ioctl.h> // For ioctl
 
+#include "udp_scanner.h"
+
 static std::mutex printMutex;
 
-// UDP port scanning function
-int UDP_scan_v4(int udpPort, const sockaddr_in& destAddr, const std::string& interface, int timeout) {
+int UDPScanner::scanV4(int port, const sockaddr_in& destAddr) {
     // Create local copy and set port
     sockaddr_in tmpAddr = destAddr;
-    tmpAddr.sin_port = htons(udpPort);
+    tmpAddr.sin_port = htons(port);
 
     // Create non-blocking UDP socket
     int sock = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK, 0);
@@ -31,7 +32,7 @@ int UDP_scan_v4(int udpPort, const sockaddr_in& destAddr, const std::string& int
     }
 
     // Specify interface to use
-    if (setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, interface.c_str(), interface.length()) < 0) {
+    if (setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, interface_.c_str(), interface_.length()) < 0) {
         perror("setsockopt SO_BINDTODEVICE failed");
         close(sock);
         return 1;
@@ -59,21 +60,21 @@ int UDP_scan_v4(int udpPort, const sockaddr_in& destAddr, const std::string& int
     epoll_ctl(epfd, EPOLL_CTL_ADD, sock, &ev);
 
     // Wait for an event
-    int nfds = epoll_wait(epfd, events, 1, timeout); // timeout for example
+    int nfds = epoll_wait(epfd, events, 1, timeout_);
     if (nfds > 0) {
         if (events[0].events & EPOLLERR) {
             int err = 0; socklen_t len = sizeof(err);
             getsockopt(sock, SOL_SOCKET, SO_ERROR, &err, &len);
             if (err == ECONNREFUSED) {
                 std::lock_guard<std::mutex> lock(printMutex);
-                std::cout << inet_ntoa(tmpAddr.sin_addr) << " " << udpPort << " udp closed" << std::endl;
+                std::cout << inet_ntoa(tmpAddr.sin_addr) << " " << port << " udp closed" << std::endl;
             }
         }
     }
-    // else no response => possibly open or filtered
+    // else no response => open or filtered
     else{
         std::lock_guard<std::mutex> lock(printMutex);
-        std::cout << inet_ntoa(tmpAddr.sin_addr) << " " << udpPort << " udp open" << std::endl;
+        std::cout << inet_ntoa(tmpAddr.sin_addr) << " " << port << " udp open" << std::endl;
     }
 
     close(epfd);
@@ -81,9 +82,9 @@ int UDP_scan_v4(int udpPort, const sockaddr_in& destAddr, const std::string& int
     return 0;
 }
 
-int UDP_scan_v6(int udpPort, const sockaddr_in6& destAddr6, const std::string& interface, int timeout) {
+int UDPScanner::scanV6(int port, const sockaddr_in6& destAddr6) {
     sockaddr_in6 tmpAddr6 = destAddr6;
-    tmpAddr6.sin6_port = htons(udpPort);
+    tmpAddr6.sin6_port = htons(port);
 
     // Create non-blocking UDP socket
     int sock = socket(AF_INET6, SOCK_DGRAM | SOCK_NONBLOCK, 0);
@@ -93,7 +94,7 @@ int UDP_scan_v6(int udpPort, const sockaddr_in6& destAddr6, const std::string& i
     }
 
     // Specify interface to use
-    if (setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, interface.c_str(), interface.length()) < 0) {
+    if (setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, interface_.c_str(), interface_.length()) < 0) {
         perror("setsockopt SO_BINDTODEVICE failed");
         close(sock);
         return 1;
@@ -122,7 +123,7 @@ int UDP_scan_v6(int udpPort, const sockaddr_in6& destAddr6, const std::string& i
     epoll_ctl(epfd, EPOLL_CTL_ADD, sock, &ev);
 
     // Wait for an event
-    int nfds = epoll_wait(epfd, events, 1, timeout); // timeout
+    int nfds = epoll_wait(epfd, events, 1, timeout_); // timeout
     char ipStr[INET6_ADDRSTRLEN];
     inet_ntop(AF_INET6, &tmpAddr6.sin6_addr, ipStr, INET6_ADDRSTRLEN);
 
@@ -132,12 +133,12 @@ int UDP_scan_v6(int udpPort, const sockaddr_in6& destAddr6, const std::string& i
             getsockopt(sock, SOL_SOCKET, SO_ERROR, &err, &len);
             if (err == ECONNREFUSED) {
                 std::lock_guard<std::mutex> lock(printMutex);
-                std::cout << ipStr << " " << udpPort << " udp closed" << std::endl;
+                std::cout << ipStr << " " << port << " udp closed" << std::endl;
             }
         }
     } else {
         std::lock_guard<std::mutex> lock(printMutex);
-        std::cout << ipStr << " " << udpPort << " udp open" << std::endl;
+        std::cout << ipStr << " " << port << " udp open" << std::endl;
     }
 
     close(epfd);
