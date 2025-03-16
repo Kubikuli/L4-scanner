@@ -138,6 +138,8 @@ int TCPScanner::TCP_receive_packet_v6(const sockaddr_in6& destAddr6, int port) {
         return 1;
     }
 
+    pcap_freecode(&filter);
+
     // Struct to store packet handling state
     PacketHandlerData data{handle, false};
 
@@ -360,6 +362,8 @@ int TCPScanner::TCP_receive_packet_v4(const sockaddr_in& destAddr4, int port) {
         pcap_close(handle);
         return 1;
     }
+
+    pcap_freecode(&filter);
 
     // Struct to store packet handling state
     PacketHandlerData data{handle, false};
