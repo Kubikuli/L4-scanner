@@ -2,18 +2,12 @@
 #include <cstring>
 #include <unistd.h>
 #include <arpa/inet.h>
-#include <netinet/ip.h>
 #include <netinet/in.h>
-#include <sys/time.h>
-#include <netinet/ip_icmp.h>
-#include <netinet/udp.h>
 #include <sys/socket.h>
 #include <sys/epoll.h>
 #include <cerrno>
 #include <mutex>
-
 #include <net/if.h>
-#include <sys/ioctl.h> // For ioctl
 
 #include "udp_scanner.h"
 

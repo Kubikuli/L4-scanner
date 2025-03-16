@@ -1,9 +1,7 @@
 #include <iostream>
-#include <vector>
 #include <string>
 #include <thread>
 #include <chrono>
-
 #include <cstring>
 #include <unistd.h>     //close
 #include <arpa/inet.h>
@@ -12,68 +10,19 @@
 #include <sys/socket.h>
 #include <pcap.h>
 #include <netinet/in.h>
-#include <sys/select.h>
-
 #include <ifaddrs.h>
 #include <netinet/in.h>
 #include <netinet/ip6.h>  // for struct ip6_hdr
 #include <net/if.h>
-
 #include <atomic>
 #include <mutex>
-#include <condition_variable>
 
 #include "tcp_scanner.h"
+#include "scanner-utils.h"
 
-// Pseudo-header for checksum calculation
-struct PseudoHeader {
-    uint32_t src_addr;
-    uint32_t dest_addr;
-    uint8_t reserved;
-    uint8_t protocol;
-    uint16_t tcp_length;
-};
+std::mutex TCPScanner::printMutex;
 
-static std::mutex printMutex;
-
-// Function to calculate checksum
-uint16_t checksum(void *buffer, int length) {
-    uint32_t sum = 0;
-    uint16_t *ptr = static_cast<uint16_t *>(buffer);
-
-    while (length > 1) {
-        sum += *ptr++;
-        length -= 2;
-    }
-    if (length == 1) {
-        sum += *(reinterpret_cast<uint8_t *>(ptr));
-    }
-
-    while (sum >> 16) {
-        sum = (sum & 0xFFFF) + (sum >> 16);
-    }
-
-    return static_cast<uint16_t>(~sum);
-}
-
-// Define a single pseudo-header-based checksum function
-uint16_t calculate_tcp_checksum(void *tcp_header, int tcp_length, void *pseudo_header, int pseudo_length) {
-    char buffer[pseudo_length + tcp_length];
-    memcpy(buffer, pseudo_header, pseudo_length);
-    memcpy(buffer + pseudo_length, tcp_header, tcp_length);
-    return checksum(buffer, sizeof(buffer));
-}
-
-// Create a pseudo-header struct for IPv6
-struct PseudoHeaderV6 {
-    struct in6_addr src;
-    struct in6_addr dest;
-    uint32_t length;
-    uint8_t zero[3];
-    uint8_t nextHeader;
-} __attribute__((packed));
-
-std::string getLocalIPv6(const std::string& interface) {
+std::string TCPScanner::getLocalIPv6() {
     struct ifaddrs *ifaddr, *ifa;
     char ip[INET6_ADDRSTRLEN] = {0};
 
@@ -84,7 +33,7 @@ std::string getLocalIPv6(const std::string& interface) {
 
     for (ifa = ifaddr; ifa != nullptr; ifa = ifa->ifa_next) {
         if (ifa->ifa_addr && ifa->ifa_addr->sa_family == AF_INET6) {
-            if (interface.empty() || strcmp(ifa->ifa_name, interface.c_str()) == 0) {
+            if (interface_.empty() || strcmp(ifa->ifa_name, interface_.c_str()) == 0) {
                 struct sockaddr_in6 *addr = (struct sockaddr_in6 *)ifa->ifa_addr;
                 
                 // Skip link-local addresses (starting with fe80::)
@@ -100,16 +49,8 @@ std::string getLocalIPv6(const std::string& interface) {
     return std::string(ip);
 }
 
-// A small struct to pass both handle and "packetArrived" flag to pcap_loop and its handler
-struct PacketHandlerData {
-    pcap_t* handle;
-    std::atomic<bool> packetArrived;
-};
-
-
-
 // This function is called every time an IPv6 packet is captured
-void packet_handler_v6(u_char *user, const struct pcap_pkthdr *hdr, const u_char *packet) {
+void TCPScanner::packet_handler_v6(u_char *user, const struct pcap_pkthdr *hdr, const u_char *packet) {
     // Skip Ethernet header (14 bytes)
     struct ip6_hdr *ip6h = (struct ip6_hdr *)(packet + 14);
 
@@ -142,9 +83,9 @@ void packet_handler_v6(u_char *user, const struct pcap_pkthdr *hdr, const u_char
 
 
 /*********************************************************************************** */
-int TCP_recieve_packet_v6(const std::string& interface, const sockaddr_in6& destAddr6, int scannedPort, int timeout) {
+int TCPScanner::TCP_receive_packet_v6(const sockaddr_in6& destAddr6, int scannedPort) {
     char errbuf[PCAP_ERRBUF_SIZE];
-    pcap_t *handle = pcap_open_live(interface.c_str(), BUFSIZ, 1, 1000, errbuf);
+    pcap_t *handle = pcap_open_live(interface_.c_str(), BUFSIZ, 1, 1000, errbuf);
     if (!handle) {
         std::cerr << "pcap_open_live failed: " << errbuf << std::endl;
         return 1;
@@ -169,8 +110,8 @@ int TCP_recieve_packet_v6(const std::string& interface, const sockaddr_in6& dest
 
     PacketHandlerData data{handle, false};
 
-    std::thread timerThread([&data, timeout, &ipStr, scannedPort]() {
-        auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout);
+    std::thread timerThread([&data, this, &ipStr, scannedPort]() {
+        auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_);
         while (!data.packetArrived.load()) {
             if (std::chrono::steady_clock::now() >= deadline) {
                 pcap_breakloop(data.handle);
@@ -195,7 +136,7 @@ int TCPScanner::scanV6(int port, const sockaddr_in6& destAddr6) {
     std::atomic<int> captureResult(0);
 
     std::thread captureThread([&]() {
-        captureResult.store(TCP_recieve_packet_v6(interface_, destAddr6, port, timeout_));
+        captureResult.store(TCP_receive_packet_v6(destAddr6, port));
     });
 
     // Wait briefly to ensure pcap_loop is ready
@@ -210,7 +151,7 @@ int TCPScanner::scanV6(int port, const sockaddr_in6& destAddr6) {
     }
 
     // Get local IPv6 address for the given interface
-    std::string localIP = getLocalIPv6(interface_);
+    std::string localIP = getLocalIPv6();
     if (localIP.empty()) {
         std::cerr << "Failed to get local IPv6 address for interface " << interface_ << std::endl;
         close(sock);
@@ -288,7 +229,7 @@ int TCPScanner::scanV6(int port, const sockaddr_in6& destAddr6) {
 
 /******************************************************************************************** */
 // Gets current user's IP address
-std::string getLocalIPv4(const std::string& interface) {
+std::string TCPScanner::getLocalIPv4() {
     struct ifaddrs *ifaddr, *ifa;
     char ip[INET_ADDRSTRLEN] = {0};
 
@@ -299,7 +240,7 @@ std::string getLocalIPv4(const std::string& interface) {
 
     for (ifa = ifaddr; ifa != nullptr; ifa = ifa->ifa_next) {
         if (ifa->ifa_addr && ifa->ifa_addr->sa_family == AF_INET) {
-            if (interface.empty() || strcmp(ifa->ifa_name, interface.c_str()) == 0) {
+            if (interface_.empty() || strcmp(ifa->ifa_name, interface_.c_str()) == 0) {
                 struct sockaddr_in *addr = (struct sockaddr_in *)ifa->ifa_addr;
                 inet_ntop(AF_INET, &addr->sin_addr, ip, INET_ADDRSTRLEN);
                 break;  // Found the first valid IPv4 address
@@ -312,7 +253,7 @@ std::string getLocalIPv4(const std::string& interface) {
 }
 
 // This function is called every time a packet is captured
-void packet_handler_v4(u_char *user, const struct pcap_pkthdr *hdr, const u_char *packet) {
+void TCPScanner::packet_handler_v4(u_char *user, const struct pcap_pkthdr *hdr, const u_char *packet) {
     struct iphdr *iph = (struct iphdr *)(packet + 14);  // Skip Ethernet header
     if (iph->protocol != IPPROTO_TCP) return;
 
@@ -336,9 +277,9 @@ void packet_handler_v4(u_char *user, const struct pcap_pkthdr *hdr, const u_char
 
 /*********************************************************************************** */
 // Open handle for the packet capture
-int TCP_recieve_packet_v4(const std::string& interface, const sockaddr_in& destAddr4, int timeout, int scannedPort) { 
+int TCPScanner::TCP_receive_packet_v4(const sockaddr_in& destAddr4, int scannedPort) { 
     char errbuf[PCAP_ERRBUF_SIZE];
-    pcap_t *handle = pcap_open_live(interface.c_str(), BUFSIZ, 1, 1000, errbuf);
+    pcap_t *handle = pcap_open_live(interface_.c_str(), BUFSIZ, 1, 1000, errbuf);
     if (!handle) {
         std::cerr << "pcap_open_live failed: " << errbuf << std::endl;
         return 1;
@@ -358,8 +299,8 @@ int TCP_recieve_packet_v4(const std::string& interface, const sockaddr_in& destA
     PacketHandlerData data{handle, false};
 
     // Start a timer thread that waits up to 'timeout' ms, then breaks loop if no packet arrived
-    std::thread timerThread([&data, timeout, &ipStr, scannedPort]() {
-        auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout);
+    std::thread timerThread([&data, this, &ipStr, scannedPort]() {
+        auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_);
         while (!data.packetArrived.load()) {
             if (std::chrono::steady_clock::now() >= deadline) {
                 pcap_breakloop(data.handle);
@@ -387,7 +328,7 @@ int TCPScanner::scanV4(int port, const sockaddr_in& destAddr4) {
 
     // Start packet capture in a background thread
     std::thread captureThread([&]() {
-        captureResult.store(TCP_recieve_packet_v4(interface_, destAddr4, timeout_, port));
+        captureResult.store(TCP_receive_packet_v4(destAddr4, port));
     });
 
     // Wait briefly to ensure pcap_loop is ready
@@ -430,7 +371,7 @@ int TCPScanner::scanV4(int port, const sockaddr_in& destAddr4) {
     iph->ttl = 64;
     iph->protocol = IPPROTO_TCP;
 
-    std::string localIP = getLocalIPv4(interface_);
+    std::string localIP = getLocalIPv4();
     if (localIP.empty()) {
         std::cerr << "Failed to get local IP address!\n";
         close(sock);

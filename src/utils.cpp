@@ -3,7 +3,7 @@
 #include <sstream>
 #include <arpa/inet.h>
 #include <netdb.h>
-#include <cstring> //memcpy
+#include <cstring>  //memcpy
 #include <ifaddrs.h>
 
 #include <argparse/argparse.hpp>
@@ -150,16 +150,16 @@ bool resolveTarget(const std::string &target, sockaddr_in &destAddr4, sockaddr_i
     memset(&destAddr6, 0, sizeof(destAddr6));
 
     if (inet_pton(AF_INET, target.c_str(), &destAddr4.sin_addr) == 1) {
+        // Target is valid IPv4 address
         destAddr4.sin_family = AF_INET;
-        std::cerr << "Target is valid IPv4: " << target << "\n";
     }
     else if (inet_pton(AF_INET6, target.c_str(), &destAddr6.sin6_addr) == 1) {
+        // Target is valid IPv6 address
         destAddr6.sin6_family = AF_INET6;
         isIPv6 = true;
-        std::cerr << "Target is valid IPv6: " << target << "\n";
     }
     else {
-        std::cerr << "Target is hostname, attempting DNS resolution...\n";
+        // Target is hostname, resolve it
         struct addrinfo hints = {}, *res = nullptr;
         hints.ai_family = AF_UNSPEC;
         if (getaddrinfo(target.c_str(), nullptr, &hints, &res) != 0) {
@@ -168,15 +168,12 @@ bool resolveTarget(const std::string &target, sockaddr_in &destAddr4, sockaddr_i
         if (res->ai_family == AF_INET) {
             memcpy(&destAddr4, res->ai_addr, sizeof(sockaddr_in));
             destAddr4.sin_family = AF_INET;
-            std::cerr << "Hostname resolved to IPv4: "
-                      << inet_ntoa(destAddr4.sin_addr) << "\n";
         } else if (res->ai_family == AF_INET6) {
             memcpy(&destAddr6, res->ai_addr, sizeof(sockaddr_in6));
             destAddr6.sin6_family = AF_INET6;
             isIPv6 = true;
             char buf[INET6_ADDRSTRLEN];
             inet_ntop(AF_INET6, &destAddr6.sin6_addr, buf, INET6_ADDRSTRLEN);
-            std::cerr << "Hostname resolved to IPv6: " << buf << "\n";
         }
         freeaddrinfo(res);
     }

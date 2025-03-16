@@ -2,7 +2,6 @@
 #ifndef UDP_SCANNER_H
 #define UDP_SCANNER_H
 
-#include <netinet/ip.h>
 #include <string>
 
 class UDPScanner {
