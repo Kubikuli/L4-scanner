@@ -63,6 +63,8 @@ std::vector<int> parsePorts(const std::string& portsStr){
 */
 int parseArguments(int argc, char* argv[], std::string& interface, std::string& target, std::vector<int>& tcpPorts, std::vector<int>& udpPorts, int& timeout){
     argparse::ArgumentParser program("ipk-l4-scan");
+
+    program.add_description("Performs a scan of TCP or/and UDP ports on a given target device from selected network interface");
     
     // Specify all the possible arguments for the parser
     program.add_argument("--interface", "-i")
