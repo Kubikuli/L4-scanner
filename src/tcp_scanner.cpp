@@ -120,8 +120,6 @@ void packet_handler_v6(u_char *user, const struct pcap_pkthdr *hdr, const u_char
     inet_ntop(AF_INET6, &ip6h->ip6_src, srcStr, sizeof(srcStr));
     inet_ntop(AF_INET6, &ip6h->ip6_dst, dstStr, sizeof(dstStr));
 
-    std::cerr << "Received IPv6 packet from " << srcStr << " -> " << dstStr << std::endl;
-
     // The base IPv6 header is 40 bytes, parse TCP header afterward
     struct tcphdr *tcph = (struct tcphdr *)(packet + 14 + 40);
 
@@ -174,7 +172,7 @@ int TCP_recieve_packet_v6(const std::string& interface, const sockaddr_in6& dest
         while (!data.packetArrived.load()) {
             if (std::chrono::steady_clock::now() >= deadline) {
                 pcap_breakloop(data.handle);
-                std::cerr << ipStr << " " << scannedPort << " tcp filtered\n";
+                std::cout << ipStr << " " << scannedPort << " tcp filtered\n";
                 break;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(20));
@@ -183,6 +181,7 @@ int TCP_recieve_packet_v6(const std::string& interface, const sockaddr_in6& dest
 
     // Start capturing packets
     pcap_loop(handle, -1, packet_handler_v6, reinterpret_cast<u_char*>(&data));
+
     timerThread.join();
     pcap_close(handle);
 
@@ -205,7 +204,7 @@ int TCP_scan_v6(const int &tcpPort, const sockaddr_in6& destAddr6, const std::st
     // Create raw socket for TCP over IPv6
     int sock = socket(AF_INET6, SOCK_RAW, IPPROTO_TCP);
     if (sock < 0) {
-        perror("Socket creation failed (IPv6)");
+        std::cerr << "Socket creation failed (TCP IPv6)";
         captureThread.join();
         return 1;
     }
@@ -267,16 +266,13 @@ int TCP_scan_v6(const int &tcpPort, const sockaddr_in6& destAddr6, const std::st
     }
     
     dest.sin6_flowinfo = 0;
-
-    std::cout << "Sending SYN packet to " << localIP << " -> " << inet_ntop(AF_INET6, &destAddr6.sin6_addr, new char[INET6_ADDRSTRLEN], INET6_ADDRSTRLEN) << "\n";
     
     char packet[sizeof(tcph)];
     memcpy(packet, &tcph, sizeof(tcph));
 
     // Send the TCP segment (without IPv6 header)
     if (sendto(sock, packet, sizeof(packet), 0, (struct sockaddr *)&dest, sizeof(dest)) < 0) {
-        perror("Send failed (IPv6)");
-        std::cerr << "errno: " << errno << std::endl;
+        std::cerr << "Packet send failed (TCP IPv6). errno: " << errno << std::endl;
         close(sock);
         captureThread.join();
         return 1;
@@ -377,8 +373,8 @@ int TCP_recieve_packet_v4(const std::string& interface, const sockaddr_in& destA
 
     // Use data struct as user param
     pcap_loop(handle, -1, packet_handler_v4, reinterpret_cast<u_char*>(&data));
-    timerThread.join();
 
+    timerThread.join();
     pcap_close(handle);
 
     return 0;
@@ -461,12 +457,11 @@ int TCP_scan_v4(const int &tcpPort, const sockaddr_in& destAddr4, const std::str
 
     // Send packet
     if (sendto(sock, packet, sizeof(packet), 0, (struct sockaddr *)&dest, sizeof(dest)) < 0) {
-        perror("Send failed");
+        std::cerr << "Packet send failed (TCP IPv4). errno: " << errno << std::endl;
         close(sock);
         return 1;
     }
 
-    // std::cerr << "SYN packet sent to " << inet_ntoa(dest.sin_addr) << std::endl;
     close(sock);
 
     return TCP_recieve_packet_v4(interface, destAddr4, timeout, tcpPort);
