@@ -50,25 +50,34 @@ Pro správné fungování musí být program spuštěn s právy správce (s př�
 ./ipk-l4-scan {--help | -h} [-i interface | --interface interface] [--pu port-ranges | --pt port-ranges | -u port-ranges | -t port-ranges] {-w timeout | --wait timeout} [hostname | ip-address]
 ```
 kde:
-**--help** zobrazí nápovědu a informací o použití
+- **--help** zobrazí nápovědu a informací o použití
 
-**--interface** specifikuje, které rozhraní chceme použít jako výchozí při skenování  
+- **--interface** specifikuje, které rozhraní chceme použít jako výchozí při skenování  
 Pokud není specifikované konkrétní rozhraní nebo není vůbec specifikovaný tento parametr, tak vypíše list dostupných rozhraní.
 
-**--pu** specifikuje, které porty chceme skenovat pomocí UDP
+- **--pu** specifikuje, které porty chceme skenovat pomocí UDP
 
-**--pt** specifikuje, které porty chceme skenovat pomocí TPC  
+- **--pt** specifikuje, které porty chceme skenovat pomocí TPC  
 Umožnuje specifikování --pt i --pu zároveň i jen jednoho z nich  
 Umožňuje zvolit jakékoliv platné porty v rozsahu 0-65535
 
-**--wait** čas v milisekundách, specifikuje, jak maximálně dlouho se má čekat na odpověď skenování jednoho portu
+- **--wait** čas v milisekundách, specifikuje, jak maximálně dlouho se má čekat na odpověď skenování jednoho portu
 
-**hostname/ip-address** adresa skenovaného zařízení, můžu být typu IPv4 i IPv6 
+- **hostname/ip-address** adresa skenovaného zařízení, můžu být typu IPv4 i IPv6 
 
-**Příklad použití:**
+**Příklady použití:**
+```sh
+./ipk_l4-scan -i
+```
+
 ```sh
 ./ipk_l4-scan -i eth0 -t 20-80 -u 22,80 -w 5000 scanme.nmap.org
 ```
+
+```sh
+./ipk_l4-scan -i lo -t 21345 -u 11223 localhost -w 4000
+```
+
 
 ## Struktura projektu
 Základní struktura se skládá ze 3 částí: zpracování argumentů příkazové řádky, skenování zvolených TCP portů a skenování zvolených UDP portů.
@@ -85,10 +94,37 @@ Podobně jako u TCP skenování se UDP skenování provádí paralelně pomocí 
 
 
 ## Testování
-Pro testování lze použít nástroje jako:
-- **Wireshark** pro analýzu paketů.
-- **Nmap** pro porovnání výsledků.
-- **Netcat** k vytvoření otevřených portů.
+Testování bylo provedeno na poskytnutém virtuálním stroji hostovaném ve VirtualBoxu.  
+Pro testování byly použity následující nástroje, uvedené včetně jejich použité verze:
+- **Wireshark** (verze 4.4.3.) - především pro analýzu, testování a kontrolu během vývoje programu
+- **Netcat** (verze 1.226) - pro vytvoření otevřených portů
+- **Nmap** (verze 7.94SV) - pro porovnání výsledků s výstupem mého programu
+
+**Test TCP skenu IPv4 adresy:**
+Pomocí nástroje netcat jsem vytvořil nový otevřený lokální port:
+```sh
+sudo nc -l -p 11111
+```
+Spustil můj program pomocí:
+```sh
+sudo ./ipk-l4-scan -i lo -t 11111 localhost
+```
+Výstup:
+```sh
+127.0.0.1 11111 tcp open
+```
+Podle očekávání vypsal můj program, že je daný port otevřený.  
+Ověřil jsem správnost pomocí nástroje Nmap:
+``` sh
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2025-03-17 11:54 CET
+Nmap scan report for localhost (127.0.0.1)
+Host is up (0.000055s latency).
+
+PORT      STATE SERVICE
+11111/tcp open  vce
+
+Nmap done: 1 IP address (1 host up) scanned in 0.07 seconds
+```
 
 **Příklad testu lokálního hostitele:**
 ```sh
@@ -97,7 +133,9 @@ sudo nc -lu -p 11111  # Otevřený UDP port
 ```
 
 ## Bibliografie
-- RFC 793 - Transmission Control Protocol
-- RFC 768 - User Datagram Protocol
-- "Nmap Network Scanning" - Gordon Lyon
-
+- Transmission Control Protocol, 2024. Wikipedia. Online. Available from: https://en.wikipedia.org/wiki/Transmission_Control_Protocol [Accessed 17 March 2025].
+- User Datagram Protocol, 2024. Wikipedia. Online. Available from: https://en.wikipedia.org/wiki/User_Datagram_Protocol [Accessed 17 March 2025].
+- RFC 793: Transmission Control Protocol, 1981. Online. Request for Comments. Internet Engineering Task Force. [Accessed 17 March 2025].
+- RFC 768: User Datagram Protocol, 1980. Online. Request for Comments. Internet Engineering Task Force. [Accessed 17 March 2025].
+- Nmap: The Art of Port Scanning. Online. Available from: https://nmap.org/nmap_doc.html#port_unreach [Accessed 17 March 2025].
+- Port scanner, 2024. Wikipedia. Online. Available from: https://en.wikipedia.org/w/index.php?title=Port_scanner&oldid=1225200572 [Accessed 17 March 2025].
