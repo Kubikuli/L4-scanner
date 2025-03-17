@@ -100,7 +100,7 @@ Pro testování byly použity následující nástroje, uvedené včetně jejich
 - **Netcat** (verze 1.226) - pro vytvoření otevřených portů
 - **Nmap** (verze 7.94SV) - pro porovnání výsledků s výstupem mého programu
 
-**Test TCP skenu IPv4 adresy:**
+**Test TCP skenu pro IPv4 adresy:**  
 Pomocí nástroje netcat jsem vytvořil nový otevřený lokální port:
 ```sh
 sudo nc -l -p 11111
@@ -116,6 +116,7 @@ Výstup:
 Podle očekávání vypsal můj program, že je daný port otevřený.  
 Ověřil jsem správnost pomocí nástroje Nmap:
 ``` sh
+sudo nmap -sS -p 11111 localhost
 Starting Nmap 7.94SVN ( https://nmap.org ) at 2025-03-17 11:54 CET
 Nmap scan report for localhost (127.0.0.1)
 Host is up (0.000055s latency).
@@ -126,11 +127,239 @@ PORT      STATE SERVICE
 Nmap done: 1 IP address (1 host up) scanned in 0.07 seconds
 ```
 
-**Příklad testu lokálního hostitele:**
+Při pokusu skenovat port lokální, který by měl být zavřený pomocí:
 ```sh
-sudo nc -lu -p 11111  # Otevřený UDP port
-./ipk-l4-scan -i lo -u 11111 localhost
+sudo ./ipk-l4-scan -i lo -t 11112 localhost
 ```
+Výstup:
+```sh
+127.0.0.1 11112 tcp closed
+```
+Nmap:
+``` sh
+sudo nmap -sS -p 11112 localhost
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2025-03-17 12:00 CET
+Nmap scan report for localhost (127.0.0.1)
+Host is up (0.000082s latency).
+
+PORT      STATE  SERVICE
+11112/tcp closed dicom
+
+Nmap done: 1 IP address (1 host up) scanned in 0.07 seconds
+```
+Pro testování veřejné adresy jsem využil scanme.nmap.org, který umožňuje legální testování skenování portů:
+```sh
+sudo ./ipk-l4-scan -i enp0s3 -t 22,23,75-81  scanme.nmap.org
+```
+Výstup:
+```sh
+45.33.32.156 80 tcp open
+45.33.32.156 22 tcp open
+45.33.32.156 81 tcp closed
+45.33.32.156 23 tcp closed
+45.33.32.156 77 tcp closed
+45.33.32.156 79 tcp closed
+45.33.32.156 76 tcp closed
+45.33.32.156 78 tcp closed
+45.33.32.156 75 tcp closed
+```
+Nmap:
+``` sh
+sudo nmap -sS -p 22,21,75-81 scanme.nmap.org
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2025-03-17 12:09 CET
+Nmap scan report for scanme.nmap.org (45.33.32.156)
+Host is up (0.036s latency).
+Other addresses for scanme.nmap.org (not scanned): 2600:3c01::f03c:91ff:fe18:bb2f
+
+PORT   STATE    SERVICE
+21/tcp filtered ftp
+22/tcp open     ssh
+75/tcp filtered priv-dial
+76/tcp filtered deos
+77/tcp filtered priv-rje
+78/tcp filtered vettcp
+79/tcp filtered finger
+80/tcp open     http
+81/tcp filtered hosts2-ns
+
+Nmap done: 1 IP address (1 host up) scanned in 1.53 seconds
+```
+Otevřené porty odpovídají výstupu mého programu. Nmap sice označil ostatní porty za filtered, ale podle mé manuální kontroly ve Wiresharku z daných portů dorazily záporné RST odpovědi, které správně můj program vyhodnotil jako uzavřený port.  
+
+**Test UDP skenu pro IPv4 adresy:**  
+Vytvoření nového otevřeného lokální portu (perzistentní, aby se neuzavřel po obdržení prvního paketu):
+```sh
+while true; do sudo nc -lu -p 12345; done
+```
+Spuštění:
+```sh
+sudo ./ipk-l4-scan -i lo -u 11111,11112 localhost
+```
+Výstup:
+```sh
+127.0.0.1 11112 udp closed
+127.0.0.1 11111 udp open
+```
+Nmap:
+``` sh
+sudo nmap -sU -p 11111,11112 localhost
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2025-03-17 12:41 CET
+Nmap scan report for localhost (127.0.0.1)
+Host is up (0.000025s latency).
+
+PORT      STATE         SERVICE
+11111/udp open|filtered vce
+11112/udp closed        dicom
+
+Nmap done: 1 IP address (1 host up) scanned in 1.31 seconds
+```
+
+Pro testování veřejné adresy jsem využil opět scanme.nmap.org:
+```sh
+sudo ./ipk-l4-scan -i enp0s3 -u 22,23,75-81  scanme.nmap.org
+```
+Výstup:
+```sh
+45.33.32.156 75 udp open
+45.33.32.156 77 udp open
+45.33.32.156 79 udp open
+45.33.32.156 22 udp open
+45.33.32.156 81 udp open
+45.33.32.156 76 udp open
+45.33.32.156 23 udp open
+45.33.32.156 78 udp open
+45.33.32.156 80 udp open
+```
+Nmap:
+``` sh
+sudo nmap -sU -p 22,23,75-81 scanme.nmap.org
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2025-03-17 12:44 CET
+Nmap scan report for scanme.nmap.org (45.33.32.156)
+Host is up (0.00036s latency).
+Other addresses for scanme.nmap.org (not scanned): 2600:3c01::f03c:91ff:fe18:bb2f
+
+PORT   STATE         SERVICE
+22/udp open|filtered ssh
+23/udp open|filtered telnet
+75/udp open|filtered priv-dial
+76/udp open|filtered deos
+77/udp open|filtered priv-rje
+78/udp open|filtered vettcp
+79/udp open|filtered finger
+80/udp open|filtered http
+81/udp open|filtered hosts2-ns
+
+Nmap done: 1 IP address (1 host up) scanned in 1.60 seconds
+```
+Výstupy programu Nmap odpovídají výstupům mého programu.  
+
+**Test TCP skenu pro IPv6 adresy:**  
+Vytvoření nového otevřeného lokální portu:
+```sh
+sudo nc -l -p 11111 -6
+```
+Spuštění:
+```sh
+sudo ./ipk-l4-scan -i lo -t 11111,11112  ::1
+```
+Výstup:
+```sh
+::1 11111 tcp open
+::1 11112 tcp closed
+```
+Nmap:
+``` sh
+sudo nmap -6 -p 11111,11112 ::1
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2025-03-17 12:49 CET
+Nmap scan report for ip6-localhost (::1)
+Host is up (0.000076s latency).
+
+PORT      STATE  SERVICE
+11111/tcp open   vce
+11112/tcp closed dicom
+
+Nmap done: 1 IP address (1 host up) scanned in 0.06 seconds
+```
+
+Pro testování veřejné adresy jsem využil veřejnou IPv6 adresu Googlu:
+```sh
+sudo ./ipk-l4-scan -i enp0s3 -t 22,80 ipv6.google.com
+```
+Výstup:
+```sh
+2a00:1450:4014:80a::200e 22 tcp closed
+2a00:1450:4014:80a::200e 80 tcp closed
+```
+Nmap:
+``` sh
+sudo nmap -6 -sS -p 22,80 ipv6.google.com
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2025-03-17 13:06 CET
+Nmap scan report for ipv6.google.com (2a00:1450:4014:80a::200e)
+Host is up (0.0028s latency).
+rDNS record for 2a00:1450:4014:80a::200e: prg03s10-in-x0e.1e100.net
+
+PORT   STATE  SERVICE
+22/tcp closed ssh
+80/tcp closed http
+
+Nmap done: 1 IP address (1 host up) scanned in 0.13 seconds
+```
+Výstupy programu Nmap odpovídají opět výstupům mého programu.  
+
+
+**Test UDP skenu pro IPv6 adresy:**  
+Vytvoření nového otevřeného lokální portu:
+```sh
+while true; do sudo nc -lu -p 11111 -6; done
+```
+Spuštění:
+```sh
+sudo ./ipk-l4-scan -i lo -u 11111,11112  ::1
+```
+Výstup:
+```sh
+::1 11112 udp closed
+::1 11111 udp open
+```
+Nmap:
+``` sh
+sudo nmap -6 -sU -p 11111,11112 ::1
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2025-03-17 12:56 CET
+Nmap scan report for ip6-localhost (::1)
+Host is up (0.000028s latency).
+
+PORT      STATE         SERVICE
+11111/udp open|filtered vce
+11112/udp closed        dicom
+
+Nmap done: 1 IP address (1 host up) scanned in 1.35 seconds
+```
+AJKSDHSJADHASHKDJASHDAJSDHJAKSDHAKJSDHAJKSDHAJKSDHAJSHDJKASHDKJASHDKAHDJKAHDKAJHDAJKDH
+
+Pro testování veřejné adresy jsem využil veřejnou IPv6 adresu Googlu:
+```sh
+sudo ./ipk-l4-scan -i enp0s3 -u 22,80 ipv6.google.com
+```
+Výstup:
+```sh
+2a00:1450:4014:80b::200e 22 udp open
+2a00:1450:4014:80b::200e 80 udp open
+```
+Nmap:
+``` sh
+sudo nmap -6 -sU -p 22,80 ipv6.google.com
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2025-03-17 13:08 CET
+Nmap scan report for ipv6.google.com (2a00:1450:4014:80b::200e)
+Host is up (0.00019s latency).
+rDNS record for 2a00:1450:4014:80b::200e: prg03s11-in-x0e.1e100.net
+
+PORT   STATE    SERVICE
+22/udp filtered ssh
+80/udp filtered http
+
+Nmap done: 1 IP address (1 host up) scanned in 0.21 seconds
+```
+Výstupy programu Nmap odpovídají výstupům mého programu. Jediný sporný případ můžeme vidět v posledním případě, kdy ale můj program při UDP skenování označuje jak vyfiltrované tak otevřené porty jako 'open', což odpovídá výstupu Nmap.  
 
 ## Bibliografie
 - Transmission Control Protocol, 2024. Wikipedia. Online. Available from: https://en.wikipedia.org/wiki/Transmission_Control_Protocol [Accessed 17 March 2025].
