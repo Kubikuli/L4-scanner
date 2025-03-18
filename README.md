@@ -156,22 +156,32 @@ sudo ./ipk-l4-scan -i enp0s3 -t 22,23,75-81  scanme.nmap.org
 ```
 Výstup:
 ```sh
+2600:3c01::f03c:91ff:fe18:bb2f 75 tcp closed
+2600:3c01::f03c:91ff:fe18:bb2f 22 tcp closed
+2600:3c01::f03c:91ff:fe18:bb2f 77 tcp closed
+2600:3c01::f03c:91ff:fe18:bb2f 76 tcp closed
+2600:3c01::f03c:91ff:fe18:bb2f 78 tcp closed
+2600:3c01::f03c:91ff:fe18:bb2f 79 tcp closed
+2600:3c01::f03c:91ff:fe18:bb2f 81 tcp closed
+2600:3c01::f03c:91ff:fe18:bb2f 23 tcp closed
+2600:3c01::f03c:91ff:fe18:bb2f 80 tcp closed
 45.33.32.156 80 tcp open
 45.33.32.156 22 tcp open
-45.33.32.156 81 tcp closed
-45.33.32.156 23 tcp closed
-45.33.32.156 77 tcp closed
-45.33.32.156 79 tcp closed
-45.33.32.156 76 tcp closed
-45.33.32.156 78 tcp closed
-45.33.32.156 75 tcp closed
+45.33.32.156 76 tcp filtered
+45.33.32.156 78 tcp filtered
+45.33.32.156 77 tcp filtered
+45.33.32.156 81 tcp filtered
+45.33.32.156 79 tcp filtered
+45.33.32.156 23 tcp filtered
+45.33.32.156 75 tcp filtered
 ```
+Na výstupu se objevili dvě různé IP adresy, protože DNS dotaz na scanme.nmap.org vrátil jednu IPv4 adresu a jednu IPv6.  
 Nmap:
 ``` sh
 sudo nmap -sS -p 22,21,75-81 scanme.nmap.org
-Starting Nmap 7.94SVN ( https://nmap.org ) at 2025-03-17 12:09 CET
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2025-03-18 15:34 CET
 Nmap scan report for scanme.nmap.org (45.33.32.156)
-Host is up (0.036s latency).
+Host is up (0.035s latency).
 Other addresses for scanme.nmap.org (not scanned): 2600:3c01::f03c:91ff:fe18:bb2f
 
 PORT   STATE    SERVICE
@@ -185,9 +195,9 @@ PORT   STATE    SERVICE
 80/tcp open     http
 81/tcp filtered hosts2-ns
 
-Nmap done: 1 IP address (1 host up) scanned in 1.53 seconds
+Nmap done: 1 IP address (1 host up) scanned in 1.57 seconds
 ```
-Otevřené porty odpovídají výstupu mého programu. Nmap sice označil ostatní porty za filtered, ale podle mé manuální kontroly ve Wiresharku z daných portů dorazily záporné RST odpovědi, které správně můj program vyhodnotil jako uzavřený port.  
+Stavy portů odpovídají výstupu mého programu. S jediným rozdílem, že nmap neskenoval IPv6 adresu jako můj program, ale IPv6 adresy testuji později.  
 
 **Test UDP skenu pro IPv4 adresy:**  
 Vytvoření nového otevřeného lokální portu (perzistentní, aby se neuzavřel po obdržení prvního paketu):
@@ -223,22 +233,31 @@ sudo ./ipk-l4-scan -i enp0s3 -u 22,23,75-81  scanme.nmap.org
 ```
 Výstup:
 ```sh
+2600:3c01::f03c:91ff:fe18:bb2f 80 udp open
+2600:3c01::f03c:91ff:fe18:bb2f 23 udp open
+2600:3c01::f03c:91ff:fe18:bb2f 78 udp open
+2600:3c01::f03c:91ff:fe18:bb2f 76 udp open
+2600:3c01::f03c:91ff:fe18:bb2f 75 udp open
+2600:3c01::f03c:91ff:fe18:bb2f 77 udp open
+2600:3c01::f03c:91ff:fe18:bb2f 79 udp open
+2600:3c01::f03c:91ff:fe18:bb2f 22 udp open
+2600:3c01::f03c:91ff:fe18:bb2f 81 udp open
+45.33.32.156 23 udp open
 45.33.32.156 75 udp open
 45.33.32.156 77 udp open
-45.33.32.156 79 udp open
-45.33.32.156 22 udp open
-45.33.32.156 81 udp open
 45.33.32.156 76 udp open
-45.33.32.156 23 udp open
-45.33.32.156 78 udp open
+45.33.32.156 22 udp open
 45.33.32.156 80 udp open
+45.33.32.156 79 udp open
+45.33.32.156 78 udp open
+45.33.32.156 81 udp open
 ```
 Nmap:
 ``` sh
 sudo nmap -sU -p 22,23,75-81 scanme.nmap.org
-Starting Nmap 7.94SVN ( https://nmap.org ) at 2025-03-17 12:44 CET
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2025-03-18 15:39 CET
 Nmap scan report for scanme.nmap.org (45.33.32.156)
-Host is up (0.00036s latency).
+Host is up (0.0013s latency).
 Other addresses for scanme.nmap.org (not scanned): 2600:3c01::f03c:91ff:fe18:bb2f
 
 PORT   STATE         SERVICE
@@ -252,9 +271,10 @@ PORT   STATE         SERVICE
 80/udp open|filtered http
 81/udp open|filtered hosts2-ns
 
-Nmap done: 1 IP address (1 host up) scanned in 1.60 seconds
+Nmap done: 1 IP address (1 host up) scanned in 1.53 seconds
 ```
 Výstupy programu Nmap odpovídají výstupům mého programu.  
+Porty, které byly u TCP testování označené mým skenerem jako filtered jsou u UDP skenu označeny open, protože u UDP se nedá rozlišit mezi otevřeným a vyfiltrovaným portem.  
 
 **Test TCP skenu pro IPv6 adresy:**  
 Vytvoření nového otevřeného lokální portu:
