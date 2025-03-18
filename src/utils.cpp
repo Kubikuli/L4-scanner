@@ -7,6 +7,7 @@
 
 #include <iostream>
 #include <vector>
+#include <set>
 #include <string>
 #include <sstream>
 #include <arpa/inet.h>
@@ -155,23 +156,27 @@ void listInterfaces() {
 }
 
 /*
-    Function that takes string containing a ipv4 or ipv6 address or hostname
-    and resolves it to a sockaddr_in or sockaddr_in6 structure
-    Returns true if target is ipv6, false if ipv4
+    Function that takes string containing a IPv4 or IPv6 address or hostname,
+    if it's hostname, DNS resolves it and returns vector of resolved addresses 
+    Returns string vector of destination addresses
 */
-bool resolveTarget(const std::string &target, sockaddr_in &destAddr4, sockaddr_in6 &destAddr6) {
-    bool isIPv6 = false;
-    memset(&destAddr4, 0, sizeof(destAddr4));
-    memset(&destAddr6, 0, sizeof(destAddr6));
+std::vector<std::string> resolveTarget(const std::string &target) {
+    std::set<std::string> addresses; // set to avoid duplicates
 
-    if (inet_pton(AF_INET, target.c_str(), &destAddr4.sin_addr) == 1) {
+    sockaddr_in addr4;
+    sockaddr_in6 addr6;
+    char ipStr[INET6_ADDRSTRLEN];
+
+    // Check if it's already a valid IPv4 or IPv6 address before DNS resolution
+    if (inet_pton(AF_INET, target.c_str(), &addr4.sin_addr) == 1) {
         // Target is valid IPv4 address
-        destAddr4.sin_family = AF_INET;
+        addresses.insert(target);
+        return {addresses.begin(), addresses.end()};
     }
-    else if (inet_pton(AF_INET6, target.c_str(), &destAddr6.sin6_addr) == 1) {
+    else if (inet_pton(AF_INET6, target.c_str(), &addr6.sin6_addr) == 1) {
         // Target is valid IPv6 address
-        destAddr6.sin6_family = AF_INET6;
-        isIPv6 = true;
+        addresses.insert(target);
+        return {addresses.begin(), addresses.end()};
     }
     else {
         // Target is hostname
@@ -181,20 +186,22 @@ bool resolveTarget(const std::string &target, sockaddr_in &destAddr4, sockaddr_i
         if (getaddrinfo(target.c_str(), nullptr, &hints, &res) != 0) {
             throw std::runtime_error("DNS resolution failed");
         }
-        // Returned IP address is IPv4
-        if (res->ai_family == AF_INET) {
-            memcpy(&destAddr4, res->ai_addr, sizeof(sockaddr_in));
-            destAddr4.sin_family = AF_INET;
-        // Returned IP address is IPv6
-        } else if (res->ai_family == AF_INET6) {
-            memcpy(&destAddr6, res->ai_addr, sizeof(sockaddr_in6));
-            destAddr6.sin6_family = AF_INET6;
-            isIPv6 = true;
-            char buf[INET6_ADDRSTRLEN];
-            inet_ntop(AF_INET6, &destAddr6.sin6_addr, buf, INET6_ADDRSTRLEN);
-        }
-        freeaddrinfo(res);
-    }
 
-    return isIPv6;
+        // Go through all the resolved addresses
+        for (auto *p = res; p != nullptr; p = p->ai_next) {
+            if (p->ai_family == AF_INET) {
+                auto *addr = reinterpret_cast<sockaddr_in *>(p->ai_addr);
+                inet_ntop(AF_INET, &addr->sin_addr, ipStr, INET_ADDRSTRLEN);
+            } else if (p->ai_family == AF_INET6) {
+                auto *addr = reinterpret_cast<sockaddr_in6 *>(p->ai_addr);
+                inet_ntop(AF_INET6, &addr->sin6_addr, ipStr, INET6_ADDRSTRLEN);
+            } else {
+                continue;
+            }
+            addresses.insert(ipStr);
+        }
+
+        freeaddrinfo(res);
+        return {addresses.begin(), addresses.end()};
+    }
 }

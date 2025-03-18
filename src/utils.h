@@ -19,9 +19,9 @@ int parseArguments(int argc, char* argv[], std::string& interface, std::string& 
 // Prints out a list of available network interfaces
 void listInterfaces();
 
-// Function that takes string containing a ipv4 or ipv6 address or hostname
-// and resolves it to a sockaddr_in or sockaddr_in6 structure
-// Returns true if target is ipv6, false if ipv4
-bool resolveTarget(const std::string &target, sockaddr_in &destAddr4, sockaddr_in6 &destAddr6);
+// Function that takes string containing a IPv4 or IPv6 address or hostname,
+// if it's hostname, DNS resolves it and returns vector of resolved addresses 
+// Returns string vector of destination addresses
+std::vector<std::string> resolveTarget(const std::string &target);
 
 #endif // UTILS_H
