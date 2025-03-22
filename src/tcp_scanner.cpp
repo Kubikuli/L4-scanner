@@ -150,6 +150,7 @@ int TCPScanner::TCP_receive_packet_v6(const sockaddr_in6& destAddr6, int port) {
         while (!data.packetArrived.load()) {
             if (std::chrono::steady_clock::now() >= deadline) {
                 pcap_breakloop(data.handle);
+                std::lock_guard<std::mutex> lock(printMutex);
                 std::cout << ipStr << " " << port << " tcp filtered" << std::endl;
                 break;
             }
