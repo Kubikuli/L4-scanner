@@ -7,3 +7,4 @@
 
 Known limitations:
 - Platform dependent (works on Linux only)
+- Please excuse my code being a little bit clunky here and there... it is my first C++ project
