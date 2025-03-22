@@ -39,7 +39,15 @@ int main(int argc, char *argv[]) {
 
     // Resolve target hostname to IP addresses
     // Or convert IP address provided from string 
-    std::vector<std::string> resolvedAddresses = resolveTarget(target);
+    std::vector<std::string> resolvedAddresses;
+    try {
+        resolvedAddresses = resolveTarget(target);
+    }
+    catch (const std::runtime_error& err) {
+        std::cerr << "Error: DNS resolution failed.\n" << err.what() << std::endl;
+        return 1;
+    }
+    
     sockaddr_in addr4;
     sockaddr_in6 addr6;
 
