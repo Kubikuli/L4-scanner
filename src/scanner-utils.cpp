@@ -10,16 +10,18 @@
 
 /*
     Function to calculate checksum for packets
+    From: https://datatracker.ietf.org/doc/html/rfc1071#section-4.1
+    Used function documented in RFC 1071, rewritten into C++ from C
 */
-uint16_t checksum(void *buffer, int length) {
+uint16_t checksum(void *buffer, int count) {
     uint32_t sum = 0;
     uint16_t *ptr = static_cast<uint16_t *>(buffer);
 
-    while (length > 1) {
+    while (count > 1) {
         sum += *ptr++;
-        length -= 2;
+        count -= 2;
     }
-    if (length == 1) {
+    if (count == 1) {
         sum += *(reinterpret_cast<uint8_t *>(ptr));
     }
 

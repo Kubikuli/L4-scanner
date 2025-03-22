@@ -5,13 +5,13 @@
 - [Základní teorie](#základní-teorie)
   - [TCP protokol](#tcp-protokol)
   - [UDP protokol](#udp-protokol)
-- [Příklady použití](#příklady-použití)
+- [Použití](#použití)
 - [Struktura projektu](#struktura-projektu)
 - [Testování](#testování)
 - [Bibliografie](#bibliografie)
 
 ## Úvod
-Řešením projektu je jednoduchý skener síťové vrstvy L4 implementovaný v C++. Umožňuje skenovat vybrané jednotlivé porty vybraného cíle a to pomocí TCP nebo UDP protokolu. Umožňuje skenovat jak cílové adresy typu IPv4 tak i adresy typu IPV6. Jeho výstupem je výpis stavu jednotlivých skenovaných portů.
+Řešením projektu je jednoduchý skener síťové vrstvy L4 implementovaný v C++. Umožňuje skenovat vybrané jednotlivé porty vybraného cíle a to pomocí TCP nebo UDP protokolu. Umožňuje skenovat jak cílové adresy typu IPv4 tak i adresy typu IPV6. Výstupem programu je výpis stavu jednotlivých skenovaných portů. Řešení je nepřenositelné a funguje pouze pro Linux.
 
 ## Základní teorie
 
@@ -26,14 +26,14 @@ Při TCP skenování se provedou jen první 2 části. Pošleme SYN paket na cí
 Možné odpovědi:
 - **SYN-ACK** paket - znamená, že port je otevřený
 - **RST** paket - znamená, že port je zavřený
-- Pokud nepřijde žádná odpověď, může to znamenat, že port je filtrován firewallem, nebo teoreticky i že se naše původní zpráva nebo odpověď někde po cestě ztratily.
+- Pokud nepřijde žádná odpověď, může to znamenat, že port je filtrován firewallem, nebo i teoreticky, že se naše původní zpráva nebo odpověď někde po cestě ztratily.
 
-Poté při samotné komunikaci se očekává na každý odeslaný paket odpověď že přišel nebo nepřišel a pokud přijde negativní odpověď nebo případně nepřijde žádná odpověď, daný paket se odešle znovu.
+Po navázání spojení, při samotné komunikaci se očekává na každý odeslaný paket odpověď, že přišel nebo nepřišel, a pokud přijde negativní odpověď nebo případně nepřijde žádná odpověď, daný paket se odešle znovu.
 Tenhle druh komunikace se využivá například pro webové stránky, přenosy emailů, souborů, apod. 
 
 ### UDP protokol
-User Datagram Protocol (UDP) je bezspojový internetový protokol, což znamená, že zprávy jsou posílány bez předchozího navázání spojení. Oproti TPC nezaručuje přenos dat, ale je o to jednodušší.  
-UDP scanning je složitější než TCP, protože otevřený UDP port neposkytuje žádnou odpověď.
+User Datagram Protocol (UDP) je bezspojový internetový protokol, což znamená, že zprávy jsou posílány bez předchozího navázání spojení. Oproti TCP nezaručuje přenos dat, ale je jednodušší.  
+UDP skenování je složitější než TCP, protože otevřený UDP port neposkytuje žádnou odpověď.
 
 Proto při UDP skenování nastane jedna z možností:
 - Nepřijde žádná odpověď, což znamená otevřený nebo filtrováný port
@@ -41,10 +41,10 @@ Proto při UDP skenování nastane jedna z možností:
 
 Tento protokol se využívá například u streamování nebo u online her.
 
-## Příklady použití
+## Použití
 Program slouží k analýze dostupnosti portů na specifikovaných hostech pomocí TCP a UDP protokolu.  
 Podporuje IPv4 i IPv6 a umožňuje nastavit rozsahy portů, timeout a zvolit zdrojové síťové rozhraní.  
-Pro správné fungování musí být program spuštěn s právy správce (Linux s příkazem 'sudo') a samozřejmě zařízení, na kterém je spuštěn musí být připojeno k internetu.
+Pro správné fungování musí být program spuštěn s právy správce (Linux s příkazem 'sudo') a samozřejmě zařízení, na kterém je spuštěn, musí být připojeno k internetu.
 
 **Syntaxe spuštění:**
 ```sh
@@ -54,17 +54,18 @@ kde:
 - **--help** zobrazí nápovědu a informace o používání
 
 - **--interface** specifikuje, které rozhraní chceme použít jako výchozí při skenování  
-Pokud není specifikované konkrétní rozhraní nebo není vůbec specifikovaný tento parametr, tak vypíše list dostupných rozhraní.
+Pokud není specifikováno konkrétní rozhraní nebo není vůbec specifikovaný tento parametr, tak vypíše list dostupných rozhraní.
 
 - **--pu** specifikuje, které porty chceme skenovat pomocí UDP
 
-- **--pt** specifikuje, které porty chceme skenovat pomocí TPC  
-Umožnuje specifikování --pt i --pu zároveň i jen jednoho z nich  
-Umožňuje zvolit jakékoliv platné porty v rozsahu 0-65535
+- **--pt** specifikuje, které porty chceme skenovat pomocí TCP  
+Umožnuje specifikování --pt i --pu zároveň i jen jednoho z nich.  
+Umožňuje zvolit jakékoliv platné porty v rozsahu 0-65535.
 
 - **--wait** čas v milisekundách, specifikuje, jak maximálně dlouho se má čekat na odpověď skenování jednoho portu
 
-- **hostname/ip-address** adresa skenovaného zařízení, můžu být typu IPv4 i IPv6
+- **hostname/ip-address** adresa skenovaného zařízení, může být typu IPv4 i IPv6  
+Při poskytnutí 'hostname' se provede DNS dotaz a poté skenování na všechny odpovídjící IP adresy
 
 **Příklady použití:**
 ```sh
@@ -84,16 +85,16 @@ Spustí TCP sken portu 21345 a UDP sken portu 11223 na lokální síti.
 
 ## Struktura projektu
 Základní struktura se skládá ze 3 částí: zpracování argumentů příkazové řádky, skenování zvolených TCP portů a skenování zvolených UDP portů.
-Skládá se ze dvou hlavních tříd, představujích konkrétní TCP a UDP skenery, jejich metod a pár pomocných funkcí v modulu utils.cpp a scanner-utils.cpp.
+Skládá se ze dvou hlavních tříd, představující TCP a UDP skenery, jejich metod a pár pomocných funkcí v modulu utils.cpp a scanner-utils.cpp.
 
 1. **Zpracování argumentů příkazové řádky**  
 Pro zpracování argumentů je využita knihovna 'argparser', pomocí které se zpracují argumenty a získají potřebné hodnoty.
 
 2. **TCP skenování**  
-Provádí se paralelně pomocí vláken a to zavoláním metody 'scanV4' nebo 'scanV6' (podle typu adresy cíle) pro vytvořený objekt ze třídy TCPScanner, pro každé vlákno s jiným přidělených číslem paketu. Ten vytvoří 'raw' soket pro odeslání ručně vytvořeného paketu. Poté proběhne nastavení soketu, vytvoření IP hlavičky a TCP hlavičky paketu. Poté se vytvoří pseudo-hlavička, která se využije k vypočítání kontrolního součtu a paket se odešle na zvolenou cílovou adresu a port. Odpovědi se zachytávají pomocí funkcí s knihovny 'libpcap'. Ještě před odesláním paketu se otevře kanál pro zachytávání komunikace pomocí 'pcap_open_live()', nastaví se filtr na konkrétní pakety, které se snažíme zachytit a podle výsledku se vypíše na standardní výstup stav portu.
+Provádí se paralelně pomocí vláken a to zavoláním metody 'scanV4' nebo 'scanV6' (podle typu adresy cíle) pro vytvořený objekt ze třídy TCPScanner, pro každé vlákno s jiným přiděleným číslem paketu. Ten vytvoří 'raw' soket pro odeslání ručně vytvořeného paketu. Poté proběhne nastavení soketu, vytvoření IP hlavičky a TCP hlavičky paketu. Následuje vytvoření pseudo-hlavičky, která se použije k vypočítání kontrolního součtu a paket se odešle na zvolenou cílovou adresu a port. Odpovědi se zachytávají pomocí funkcí s knihovny 'libpcap'. Ještě před odesláním paketu se otevře kanál pro zachytávání komunikace pomocí 'pcap_open_live()', nastaví se filtr na konkrétní pakety, které se snažíme zachytit a podle výsledku se vypíše na standardní výstup stav portu.
 
 3. **UDP skenování**  
-Podobně jako u TCP skenování se UDP skenování provádí paralelně pomocí vláken a to zavoláním metody 'scanV4' nebo 'scanV6' pro vytvořený objekt ze třídy UDPScanner, pro každé vlákno s jiným přidělených číslem paketu. Každé vlákno poté vytvoří soket, z kterého odešle paket na cílovou adresu a zvolený port. Poté pomocí funkce 'epoll' zachytává odpověď a podle výsledku vytiskne stav portu.
+Podobně jako u TCP skenování se UDP skenování provádí paralelně pomocí vláken a to zavoláním metody 'scanV4' nebo 'scanV6' pro vytvořený objekt ze třídy UDPScanner, pro každé vlákno s jiným přiděleným číslem paketu. Každé vlákno poté vytvoří soket, z kterého odešle paket na cílovou adresu a zvolený port. Poté pomocí funkce 'epoll' zachytává odpověď a podle výsledku vytiskne stav portu.
 
 
 ## Testování
@@ -130,7 +131,7 @@ PORT      STATE SERVICE
 Nmap done: 1 IP address (1 host up) scanned in 0.07 seconds
 ```
 
-Při pokusu skenovat port lokální, který by měl být zavřený pomocí:
+Sken lokálního portu, který by měl být zavřený pomocí:
 ```sh
 sudo ./ipk-l4-scan -i lo -t 11112 localhost
 ```
@@ -197,7 +198,7 @@ PORT   STATE    SERVICE
 
 Nmap done: 1 IP address (1 host up) scanned in 1.57 seconds
 ```
-Stavy portů odpovídají výstupu mého programu. S jediným rozdílem, že nmap neskenoval IPv6 adresu jako můj program, ale IPv6 adresy testuji později.  
+Stavy portů odpovídají výstupu mého programu. S jediným rozdílem, že nmap neskenoval IPv6 adresu jako můj program, ale na testování IPv6 adres se zaměřuje pozdější část.  
 
 **Test UDP skenu pro IPv4 adresy:**  
 Vytvoření nového otevřeného lokální portu (perzistentní, aby se neuzavřel po obdržení prvního paketu):
@@ -383,9 +384,10 @@ Nmap done: 1 IP address (1 host up) scanned in 0.21 seconds
 Výstupy programu Nmap odpovídají výstupům mého programu. Jediný sporný případ můžeme vidět v posledním případě, kdy ale můj program při UDP skenování označuje jak vyfiltrované tak otevřené porty jako 'open', což odpovídá výstupu Nmap.  
 
 ## Bibliografie
-- Transmission Control Protocol, 2024. Wikipedia. Online. Available from: https://en.wikipedia.org/wiki/Transmission_Control_Protocol [Accessed 17 March 2025].
-- User Datagram Protocol, 2024. Wikipedia. Online. Available from: https://en.wikipedia.org/wiki/User_Datagram_Protocol [Accessed 17 March 2025].
-- RFC 793: Transmission Control Protocol, 1981. Online. Request for Comments. Internet Engineering Task Force. [Accessed 17 March 2025].
-- RFC 768: User Datagram Protocol, 1980. Online. Request for Comments. Internet Engineering Task Force. [Accessed 17 March 2025].
-- Nmap: The Art of Port Scanning. Online. Available from: https://nmap.org/nmap_doc.html#port_unreach [Accessed 17 March 2025].
-- Port scanner, 2024. Wikipedia. Online. Available from: https://en.wikipedia.org/w/index.php?title=Port_scanner&oldid=1225200572 [Accessed 17 March 2025].
+- Transmission Control Protocol, 2024. Wikipedia. Online. Available from: https://en.wikipedia.org/wiki/Transmission_Control_Protocol [Accessed 22 March 2025].
+- User Datagram Protocol, 2024. Wikipedia. Online. Available from: https://en.wikipedia.org/wiki/User_Datagram_Protocol [Accessed 22 March 2025].
+- RFC 793: Transmission Control Protocol, 1981. Online. Internet Engineering Task Force. Available from: https://datatracker.ietf.org/doc/html/rfc793 [Accessed 22 March 2025].
+- RFC 768: User Datagram Protocol, 1980. Online. Internet Engineering Task Force. Available from: https://datatracker.ietf.org/doc/html/rfc768 [Accessed 22 March 2025].
+- Nmap: The Art of Port Scanning. Online. Available from: https://nmap.org/nmap_doc.html#port_unreach [Accessed 22 March 2025].
+- Port scanner, 2024. Wikipedia. Online. Available from: https://en.wikipedia.org/w/index.php?title=Port_scanner&oldid=1225200572 [Accessed 22 March 2025].
+- RFC 1071: Computing the internet checksum, 1988. Online. Internet Engineering Task Force. Available from: https://datatracker.ietf.org/doc/html/rfc1071 [Accessed 22 March 2025].
