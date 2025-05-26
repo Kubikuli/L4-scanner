@@ -1,0 +1,20 @@
+--- main_copy.cpp	2025-04-24 09:59:46.459150800 +0200
++++ main.cpp	2025-04-24 09:59:51.463376100 +0200
+@@ -59,7 +59,7 @@
+             addr6.sin6_family = AF_INET6;
+ 
+             // Ports for TCP
+-            TCPScanner tcpScanner(interface, timeout);
++            TCPScanner tcpScanner(interface, 3000);
+             // Parallel scan of all the selected TCP ports
+             std::vector<std::thread> tcpThreadsV6;
+             for (auto port : tcpPorts) {
+@@ -91,7 +91,7 @@
+         else if (inet_pton(AF_INET, resolved.c_str(), &addr4.sin_addr) == 1) {
+             addr4.sin_family = AF_INET;
+ 
+-            TCPScanner tcpScanner(interface, timeout);
++            TCPScanner tcpScanner(interface, 3000);
+             // Parallel scan of all the selected TCP ports
+             std::vector<std::thread> tcpThreadsV4;
+             for (auto port : tcpPorts) {
