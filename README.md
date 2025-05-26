@@ -1,6 +1,6 @@
 # IPK_proj1
 
-Total points: 6.52/10
+Total points: 6.52/10  
 (Timeout timer starts before sending packet, so it doesn't reliably work for timeouts <3000ms. Can be easily "fixed" with fix.diff)
 ```sh
 --Implementace--
