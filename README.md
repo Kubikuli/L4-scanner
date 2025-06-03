@@ -1,67 +1,5 @@
 # IPK_proj1
 
-Total points: 6.52/10  
-(Timeout timer starts before sending packet, so it doesn't reliably work for timeouts <3000ms. Can be easily "fixed" with fix.diff)
-```sh
---Implementace--
-tests/test_smoke.py::test_mandatory_project_structure_case_sensitive (SingleHostNotCompiled): passed
-tests/test_smoke.py::test_makefile_exists_case_insensitive (SingleHostNotCompiled): passed
-tests/test_smoke.py::test_makefile_check_harmful_commands (SingleHostNotCompiled): passed
-tests/test_smoke.py::test_compilation_make (SingleHostNotCompiled): passed
-tests/test_lan.py::test_lan_tcp_handshake_allowed (LAN): failed
-tests/test_lan.py::test_lan_tcp_handshake_allowed_short_port_arg (LAN): failed
-tests/test_lan.py::test_lan[IPv4-single open TCP port] (LAN): failed
-tests/test_lan.py::test_lan[IPv4-single closed TCP port] (LAN): failed
-tests/test_lan.py::test_lan[IPv4-sequence of 2 closed TCP ports] (LAN): failed
-tests/test_lan.py::test_lan[IPv4-sequence of 2 open and closed TCP ports] (LAN): failed
-tests/test_lan.py::test_lan[IPv4-sequence of 2 open TCP ports] (LAN): failed
-tests/test_lan.py::test_lan[IPv4-range of 3 open and closed TCP ports] (LAN): failed
-tests/test_lan.py::test_lan[IPv4-single open UDP port] (LAN): passed
-tests/test_lan.py::test_lan[IPv4-single closed UDP port] (LAN): passed
-tests/test_lan.py::test_lan[IPv4-sequence of 2 closed UDP ports] (LAN): passed
-tests/test_lan.py::test_lan[IPv4-sequence of 2 open and closed UDP ports] (LAN): passed
-tests/test_lan.py::test_lan[IPv4-sequence of 2 open UDP ports] (LAN): passed
-tests/test_lan.py::test_lan[IPv4-range of 3 open and closed UDP ports] (LAN): passed
-tests/test_lan.py::test_lan[IPv4-range of 3 open and closed TCP ports, sequence of 2 open and closed UDP ports] (LAN): failed
-tests/test_lan.py::test_lan[IPv6-single open UDP port] (LAN): passed
-tests/test_lan.py::test_lan[IPv6-single closed UDP port] (LAN): passed
-tests/test_lan.py::test_lan[IPv6-sequence of 2 closed UDP ports] (LAN): passed
-tests/test_lan.py::test_lan[IPv6-sequence of 2 open and closed UDP ports] (LAN): passed
-tests/test_lan.py::test_lan[IPv6-sequence of 2 open UDP ports] (LAN): passed
-tests/test_lan.py::test_lan[IPv6-range of 3 open and closed UDP ports] (LAN): passed
-tests/test_args.py::test_arg_interface (LAN): passed
-tests/test_args.py::test_arg_help (LAN): passed
-tests/test_internet.py::test_dns_invalid (LAN): passed
-tests/test_localhost.py::test_tcp[127.0.0.1 single open TCP port] (LAN): failed
-tests/test_localhost.py::test_tcp[localhost single open TCP port] (LAN): failed
-tests/test_lan.py::test_lan[IPv6-single open TCP port] (LAN): failed
-tests/test_lan.py::test_lan[IPv6-single closed TCP port] (LAN): failed
-tests/test_lan.py::test_lan[IPv6-sequence of 2 closed TCP ports] (LAN): failed
-tests/test_lan.py::test_lan[IPv6-sequence of 2 open and closed TCP ports] (LAN): failed
-tests/test_lan.py::test_lan[IPv6-sequence of 2 open TCP ports] (LAN): failed
-tests/test_lan.py::test_lan[IPv6-range of 3 open and closed TCP ports] (LAN): failed
-tests/test_lan.py::test_lan[IPv6-range of 3 open and closed TCP ports, sequence of 2 open and closed UDP ports] (LAN): failed
-tests/test_lan.py::test_timeout_long (LAN): passed
-tests/test_lan.py::test_timeout_short (LAN): passed
-tests/test_internet.py::test_dns_a_aaaa_multiple (LAN): passed
-tests/test_internet.py::test_dns_a_aaaa_single (LAN): passed
-note:
-penalty coefficient: 1
-penalty description:
-git history (max 0.5): 0.5
-git content (max 0.5): 0.5
-points override:
-points final (max 7): 4.37
-
---Dokumentace--
-Úprava/Formátování/Rozsah (0,5b): 0.50
-Vysvětlení problematiky/Motivace (0,75b): 0.50
-Popis implementace (0,75b): 0.40
-Testování (1b): 0.75
-Celkem: 2.15
-Komentář: V úvodu chybí motivace, nedostatečný popis implementace, chybí diagram a control flow, popis jednotlivých modulů a klíčových metod. V sekci testování chybí výstup z wireshark či tcpdump.
-```
-
 ## Obsah
 - [Úvod](#úvod)
 - [Základní teorie](#základní-teorie)
@@ -444,6 +382,9 @@ PORT   STATE    SERVICE
 Nmap done: 1 IP address (1 host up) scanned in 0.21 seconds
 ```
 Výstupy programu Nmap odpovídají výstupům mého programu. Jediný sporný případ můžeme vidět v posledním případě, kdy ale můj program při UDP skenování označuje jak vyfiltrované tak otevřené porty jako 'open', což odpovídá výstupu Nmap.  
+
+Total points: 6.52/10  
+(Timeout timer starts before sending packet, so it doesn't reliably work for timeouts <3000ms. Can be easily "fixed" with fix.diff)
 
 ## Bibliografie
 - Transmission Control Protocol, 2024. Wikipedia. Online. Available from: https://en.wikipedia.org/wiki/Transmission_Control_Protocol [Accessed 22 March 2025].
