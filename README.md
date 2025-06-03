@@ -1,4 +1,4 @@
-# IPK_proj1
+# L4-scanner
 
 ## Obsah
 - [Úvod](#úvod)
